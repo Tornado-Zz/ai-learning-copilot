@@ -1,0 +1,48 @@
+# ---- Node / frontend ----
+node_modules/
+.pnpm-store/
+.next/
+out/
+dist/
+build/
+.turbo/
+*.tsbuildinfo
+
+# ---- Python / backend ----
+__pycache__/
+*.py[cod]
+*.pyc
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+coverage/
+.coverage
+.coverage.*
+coverage.xml
+
+# ---- Environment files (never commit secrets) ----
+.env
+.env.*
+!.env.example
+
+# ---- Logs / temp ----
+*.log
+logs/
+tmp/
+.cache/
+
+# ---- OS / editors ----
+.DS_Store
+Thumbs.db
+Desktop.ini
+.idea/
+.vscode/
+!.vscode/extensions.json
+
+# ---- Local database data ----
+pgdata/
+postgres-data/
