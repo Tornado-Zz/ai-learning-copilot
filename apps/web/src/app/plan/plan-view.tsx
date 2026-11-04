@@ -412,6 +412,12 @@ export function PlanView() {
                 重生成由后端按 dedupe_key 幂等执行，不会删除或改写 done / skipped 的行。
               </p>
               <p>
+                <strong className="font-medium text-fg">复习优先于新练习。</strong>
+                每日额度先排课程，再排到期复习，最后才排新练习。当日时长较紧时（例如 30 分钟课 + 15 分钟复习正好用满 45 分钟），
+                唯一的 15 分钟槽位会被复习占用，因此<strong className="font-medium text-fg">复习密集的周可能没有新练习</strong>——
+                这是刻意的：把答错的题再考一次，比多做一道新题更有价值。错题连续通过 3 次后会转为完成，不再占用额度。
+              </p>
+              <p>
                 跳过不会顺延到次日，也不计为失败。done / skipped 是终态，本页不提供撤销；
                 expired 只能由「重新生成」复活为待执行。计划完成不等于课程完成或能力等级。
               </p>
