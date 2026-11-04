@@ -5,6 +5,31 @@
 
 ## [Unreleased]
 
+## [0.1.6] — 2026-11-04
+
+工程化收尾：让「本地全绿」与「CI 全绿」成为同一件事。
+
+### Added
+
+- `scripts/ci.ps1`：与 `.github/workflows/ci.yml` **完全相同的 9 个步骤**（后端 `uv sync --locked` / 迁移 / head 校验 / 两档 pytest；前端 `npm ci` / `tsc` / `lint` / `build`），任何一步非 0 退出码都会被列出。推送前本地跑一次即可预知 CI 结果。
+- `smoke.ps1` 增加环境泄漏提示：若 shell 里残留 `DATABASE_URL`（会覆盖 `.env`），会打印脱敏后的地址，避免出现「明明库是好的却 alembic 连不上」这种难以定位的失败。
+
+### Changed
+
+- `study_plan.generate_plan()` 改为接收显式 `user_id`（`users.get_user` + 路由解析）。此前它内部解析「唯一那个用户」，导致计划相关用例只能跑在真实用户身上、随真实学习数据漂移。新增 `test_study_plan_isolation.py` 用自建用户证明隔离：别的用户生成计划不会改动种子用户的任何行。
+
+### Fixed
+
+- 计划相关测试的断言改为「规则」而非「数据」：历史分钟按增量断言、练习数断言「不超过上限」而不是「必须达到 2」。
+- `skill-card.tsx` 残留的未使用导入（ESLint 会报 warning）。
+- `apps/web/package-lock.json` 的版本号停留在 0.1.0，已与 `package.json` 对齐到 0.1.3。
+- `CONTRIBUTING.md` 一处被改岔的句子。
+
+### Verified
+
+- 全新克隆中执行 `scripts/ci.ps1`：9 步全部 `ok`，末尾输出 `CI-equivalent checks passed.`
+- 干净数据库上：`130 passed`（单元）+ `127 passed`（集成）。
+
 ## [0.1.5] — 2026-11-04
 
 以学习者身份完整走一遍首次使用流程（诊断 20 题 → 结果 → 计划 → 练习 → 复习 → 作品）时发现的界面缺陷。

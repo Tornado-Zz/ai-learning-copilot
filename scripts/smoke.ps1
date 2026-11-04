@@ -3,6 +3,14 @@
 $ErrorActionPreference = 'Continue'
 $root = Split-Path -Parent $PSScriptRoot
 $fail = 0
+
+# An exported DATABASE_URL overrides apps/api/.env, so a leftover value from an
+# earlier shell session (for example a dropped temporary database) makes every
+# alembic check fail for a reason that has nothing to do with the repository.
+if ($env:DATABASE_URL) {
+  $masked = $env:DATABASE_URL -replace '://[^@]*@', '://***@'
+  Write-Host ('NOTE  shell DATABASE_URL is set and overrides .env: ' + $masked) -ForegroundColor Yellow
+}
 function Check($name, [scriptblock]$test) {
   try { $r = & $test; if ($r) { Write-Host ('PASS  ' + $name) -ForegroundColor Green } else { Write-Host ('FAIL  ' + $name) -ForegroundColor Red; $script:fail++ } }
   catch { Write-Host ('FAIL  ' + $name + ' -> ' + $_.Exception.Message) -ForegroundColor Red; $script:fail++ }
