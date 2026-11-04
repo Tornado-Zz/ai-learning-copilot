@@ -5,6 +5,34 @@
 
 ## [Unreleased]
 
+## [0.1.8] — 2026-11-04
+
+开源发布前的依赖与元数据审计。
+
+### Added
+
+- `SECURITY.md`：安全边界（仅回环、无鉴权是设计取舍、不执行用户代码、Key 不入库不入日志、知识白名单）、依赖告警的**真实情况**、以及任何人都能自己复核的命令。
+
+### Changed
+
+- `apps/api/pyproject.toml`：描述从「Sprint 0 skeleton」改为真实职责，版本对齐 `0.1.7`。
+- `apps/web/package.json`：包名 `web` → `ai-learning-copilot-web`，版本对齐 `0.1.7`，补 `license: MIT`；`package-lock.json` 同步重建。
+
+### Fixed
+
+- **`uv.lock` 因 pyproject 元数据变更而失效**：`uv sync --locked` 会直接报 `lockfile needs to be updated`，CI 必红。已执行 `uv lock`（只更新版本行），`uv lock --check` 与 `uv sync --locked` 恢复通过。
+
+### 依赖审计结论（如实记录）
+
+- `npm audit`：**16 个 moderate，全部在 ESLint 开发链**（`minimatch` 经 `eslint-config-next` 传递引入）。
+- **运行时依赖干净**：`next` / `react` / `react-dom` / `tailwindcss` 均无告警；生产依赖只有 3 个。
+- `npm audit fix`（非 `--force`）无法消除；`--force` 会升到 `eslint-config-next` 不接受的版本、反而破坏 lint。**选择等上游修复并在 `SECURITY.md` 记录，而不是强推。**
+
+### Verified
+
+- `scripts/ci.ps1` 十个步骤全绿，`npm run lint` 输出已显示新包名 `ai-learning-copilot-web@0.1.7`。
+- `npm ci` 在新包名下正常工作；`tsc` / `eslint` / `next build` / 死导出检查全部干净。
+
 ## [0.1.7] — 2026-11-04
 
 开源前的代码质量收尾：后端补 lint、前端清死代码、修掉工具链里两处会伤到使用者的坑。
