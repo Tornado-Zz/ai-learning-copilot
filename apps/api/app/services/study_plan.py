@@ -317,9 +317,15 @@ def _level_label(level: int, state: str) -> str:
     return f"L{level}"
 
 
-async def _require_confirmed_timezone(session: AsyncSession) -> dict[str, object]:
-    """409 until the user confirms its timezone: no local-calendar derivation before that."""
-    user = await users.get_single_user(session)
+async def _require_confirmed_timezone(
+    session: AsyncSession, user_id: int
+) -> dict[str, object]:
+    """409 until the user confirms its timezone: no local-calendar derivation before that.
+
+    显式接收 user_id：路由先用 users.get_single_user 解析出 id，测试可以传入自建用户，
+    计划生成因此不再隐式依赖「唯一那个用户」。
+    """
+    user = await users.get_user(session, user_id)
     if user["timezone_source"] != "user_confirmed":
         raise ApiError(
             409,
@@ -552,7 +558,7 @@ async def _week_days(
 
 
 async def build_preview(session: AsyncSession) -> dict[str, object]:
-    user = await _require_confirmed_timezone(session)
+    user = await _require_confirmed_timezone(session, await _single_user_id(session))
     user_id = int(user["id"])
     timezone_name = str(user["timezone"])
     profile = await users.get_profile(session, user_id)
@@ -1097,9 +1103,14 @@ async def _load_rows(
     ]
 
 
+async def _single_user_id(session: AsyncSession) -> int:
+    """单用户路由的唯一入口：把「当前用户是谁」收敛成一次解析。"""
+    return int((await users.get_single_user(session))["id"])
+
+
 async def read_plan(session: AsyncSession) -> dict[str, object]:
     """The persisted plan of this week. Never writes and never generates."""
-    user = await _require_confirmed_timezone(session)
+    user = await _require_confirmed_timezone(session, await _single_user_id(session))
     user_id = int(user["id"])
     timezone_name = str(user["timezone"])
     profile = await users.get_profile(session, user_id)
@@ -1112,16 +1123,18 @@ async def read_plan(session: AsyncSession) -> dict[str, object]:
 
 
 async def generate_plan(
-    session: AsyncSession, *, today_override: date | None = None
+    session: AsyncSession, *, user_id: int, today_override: date | None = None
 ) -> dict[str, object]:
-    """Generate (or refresh) this week's plan and persist it. Idempotent per week.
+    """Generate (or refresh) the plan of one user and persist it. Idempotent per week.
+
+    user_id 是显式参数而不是在内部解析：路由传当前（唯一）用户，测试传自建用户，
+    这样计划相关用例可以自带数据、不再随种子用户的真实学习进度漂移。
 
     today_override pins the local calendar day so a test can reproduce "first
     generation on a Tuesday / on a Saturday" at any real date; production reads
     users.timezone and passes nothing.
     """
-    user = await _require_confirmed_timezone(session)
-    user_id = int(user["id"])
+    user = await _require_confirmed_timezone(session, user_id)
     timezone_name = str(user["timezone"])
     profile = await users.get_profile(session, user_id)
     study_days = [int(day) for day in profile["study_days"]]

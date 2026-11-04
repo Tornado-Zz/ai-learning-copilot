@@ -19,6 +19,11 @@ from app.schemas.study_plan import (
     StudyPlanResponse,
 )
 from app.services import users as users_service
+
+
+async def _current_user_id(session: AsyncSession) -> int:
+    """单用户语义：计划生成需要显式 user_id，路由在这里解析一次。"""
+    return int((await users_service.get_single_user(session))["id"])
 from app.services import study_plan as study_plan_service
 
 router = APIRouter(tags=["study-plan"])
@@ -58,7 +63,7 @@ async def generate_plan(
     session: AsyncSession = Depends(get_db),
 ) -> StudyPlanGeneratedResponse:
     return StudyPlanGeneratedResponse.model_validate(
-        await study_plan_service.generate_plan(session)
+        await study_plan_service.generate_plan(session, user_id=await _current_user_id(session))
     )
 
 

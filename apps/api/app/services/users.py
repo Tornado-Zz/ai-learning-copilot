@@ -23,6 +23,14 @@ SELECT_SINGLE_USER = text(
     """
 )
 
+SELECT_USER_BY_ID = text(
+    """
+    SELECT id, display_name, timezone, timezone_source
+    FROM users
+    WHERE id = :user_id
+    """
+)
+
 SELECT_PROFILE = text(
     """
     SELECT user_id, study_days, daily_minutes, weekly_minutes
@@ -78,6 +86,18 @@ async def get_single_user(session: AsyncSession) -> dict[str, object]:
             NOT_FOUND,
             "还没有可用的用户，请先执行数据库迁移（uv run alembic upgrade head）写入种子用户",
         )
+    return dict(row)
+
+
+async def get_user(session: AsyncSession, user_id: int) -> dict[str, object]:
+    """One user by id.
+
+    单用户路由先用 get_single_user 解析出 id，再把 id 传进服务层；这样服务层与测试
+    都不必各自再猜「当前用户是谁」，测试也可以给自建用户生成计划而不影响种子用户。
+    """
+    row = (await session.execute(SELECT_USER_BY_ID, {"user_id": user_id})).mappings().first()
+    if row is None:
+        raise ApiError(404, NOT_FOUND, "用户不存在", {"user_id": user_id})
     return dict(row)
 
 

@@ -255,14 +255,14 @@ async def test_patch_03_first_generation_on_tuesday_creates_no_monday_scheduled_
         tuesday = monday + timedelta(days=1)
 
         # 对照：把「今天」钉在周一，周一确实会被排课（证明过滤器不是空转）
-        await study_plan_service.generate_plan(db_session, today_override=monday)
+        await study_plan_service.generate_plan(db_session, user_id=user_id, today_override=monday)
         rows_monday = await _rows(db_session, user_id, monday)
         assert [
             row["id"] for row in rows_monday if row["plan_date"] == monday and row["status"] == "scheduled"
         ], "周一首次生成应把课程排到周一"
 
         # 周二首次生成：周一一行 scheduled 都不新增，原来的行作废保存
-        await study_plan_service.generate_plan(db_session, today_override=tuesday)
+        await study_plan_service.generate_plan(db_session, user_id=user_id, today_override=tuesday)
         rows_tuesday = await _rows(db_session, user_id, monday)
         assert not [
             row
@@ -310,7 +310,7 @@ async def test_patch_04_first_generation_on_the_weekend_only_schedules_the_weeke
         saturday = monday + timedelta(days=5)
         sunday = monday + timedelta(days=6)
 
-        await study_plan_service.generate_plan(db_session, today_override=saturday)
+        await study_plan_service.generate_plan(db_session, user_id=user_id, today_override=saturday)
         rows_saturday = await _rows(db_session, user_id, monday)
         scheduled = [row for row in rows_saturday if row["status"] == "scheduled"]
         assert scheduled, "周六仍在候选区间内，应能排课"
@@ -318,7 +318,7 @@ async def test_patch_04_first_generation_on_the_weekend_only_schedules_the_weeke
         assert {row["plan_date"] for row in scheduled} <= {saturday, sunday}
 
         # 周日首次生成：本周已经没有可排日期
-        await study_plan_service.generate_plan(db_session, today_override=sunday)
+        await study_plan_service.generate_plan(db_session, user_id=user_id, today_override=sunday)
         rows_sunday = await _rows(db_session, user_id, monday)
         assert not [row for row in rows_sunday if row["status"] == "scheduled"]
         assert len(rows_sunday) == len(rows_saturday), "改状态不改行数"

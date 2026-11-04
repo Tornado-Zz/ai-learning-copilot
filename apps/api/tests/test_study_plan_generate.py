@@ -1,9 +1,9 @@
 """Sprint 2 验收 ⑥–⑪：周计划只排真实 lesson、R1/R2 预算与学习日、幂等与 done/skipped 保护、时区。
 
-注意（技术债）：`study_plan.generate_plan()` 内部解析「唯一那个用户」，所以这些用例
-只能跑在种子用户身上，会随真实学习数据变化。因此断言只写**规则**（上限、预算、幂等、
-终态不可改写），不写「库里应该还有多少活可排」这类数据属性。彻底解法是给
-`generate_plan` 增加显式 `user_id` 参数，让用例各自建独立用户。
+注意：`generate_plan()` 现接收显式 `user_id`，用例可自建用户（见
+test_study_plan_isolation.py）。本文件仍跑在种子用户身上，因为重点在于「同一用户重复
+生成时的幂等与终态保护」；因此断言只写**规则**（上限、预算、幂等、终态不可改写），
+不写「库里应该还有多少活可排」这类数据属性。
 
 隔离策略：接口是单用户语义，因此"读基线 → 写 → 断言 → 复原"并依赖外层事务回滚；
 行数断言一律按 (user_id, week_start) 维度，绝不使用全表绝对值。
@@ -741,7 +741,7 @@ async def test_sprint6_03_daily_exercise_cap_follows_the_domain_level_average(
         await db_session.execute(
             INSERT_SPRINT6_DOMAIN_LEVELS, {"user_id": user_id, "level": 1}
         )
-        await study_plan_service.generate_plan(db_session, today_override=monday)
+        await study_plan_service.generate_plan(db_session, user_id=user_id, today_override=monday)
         low = _sprint6_counts(await _sprint6_rows(db_session, user_id, monday), "exercise")
         # 上限规则的可靠断言是「不超过」，而不是「一定能排到」：当日额度可能被课程与
         # 到期复习先占掉，此时排不进新练习是正确行为（v0.1.2 起复习优先占位）。
@@ -751,7 +751,7 @@ async def test_sprint6_03_daily_exercise_cap_follows_the_domain_level_average(
         await db_session.execute(
             INSERT_SPRINT6_DOMAIN_LEVELS, {"user_id": user_id, "level": 2}
         )
-        await study_plan_service.generate_plan(db_session, today_override=monday)
+        await study_plan_service.generate_plan(db_session, user_id=user_id, today_override=monday)
         high = _sprint6_counts(await _sprint6_rows(db_session, user_id, monday), "exercise")
         # 只能断言「不超过上限」：每天能排到的练习数还受「当天排到几门课」限制，
         # 用户已完成部分课程后一天只有一门课，实测上限 2 也只会排到 1（属正确行为）。
@@ -779,7 +779,7 @@ async def test_sprint6_04_daily_minutes_never_overspent_with_exercises(
         )
         monday = await _sprint6_monday(db_session)
         generated_days = {monday + timedelta(days=offset) for offset in (1, 2, 3)}
-        await study_plan_service.generate_plan(db_session, today_override=monday)
+        await study_plan_service.generate_plan(db_session, user_id=user_id, today_override=monday)
         rows = await _sprint6_rows(db_session, user_id, monday)
         totals = _sprint6_minutes(rows, generated_days)
         assert totals, "生成后必须落库"
@@ -797,7 +797,7 @@ async def test_sprint6_04_daily_minutes_never_overspent_with_exercises(
             SET_SPRINT6_PROFILE,
             {"user_id": user_id, "days": [2, 3, 4], "daily_minutes": 40},
         )
-        await study_plan_service.generate_plan(db_session, today_override=monday)
+        await study_plan_service.generate_plan(db_session, user_id=user_id, today_override=monday)
         rows_40 = await _sprint6_rows(db_session, user_id, monday)
         totals_40 = _sprint6_minutes(rows_40, generated_days)
         assert all(total <= 40 for total in totals_40.values()), totals_40
@@ -829,7 +829,7 @@ async def test_sprint6_05_non_study_day_and_past_date_get_no_rows(
         wednesday = monday + timedelta(days=2)
         thursday = monday + timedelta(days=3)
 
-        await study_plan_service.generate_plan(db_session, today_override=wednesday)
+        await study_plan_service.generate_plan(db_session, user_id=user_id, today_override=wednesday)
         rows = await _sprint6_rows(db_session, user_id, monday)
         scheduled = [row for row in rows if row["status"] == "scheduled"]
         assert scheduled, "本周仍有周四这个学习日"
@@ -868,13 +868,13 @@ async def test_sprint6_06_regeneration_is_idempotent_with_exercise_rows(
         )
         monday = await _sprint6_monday(db_session)
 
-        first = await study_plan_service.generate_plan(db_session, today_override=monday)
+        first = await study_plan_service.generate_plan(db_session, user_id=user_id, today_override=monday)
         rows_1 = await _sprint6_rows(db_session, user_id, monday)
         keys_1 = sorted(str(row["dedupe_key"]) for row in rows_1)
         assert any(row["kind"] == "exercise" for row in rows_1 if row["status"] != "expired")
 
         for _ in range(2):
-            again = await study_plan_service.generate_plan(db_session, today_override=monday)
+            again = await study_plan_service.generate_plan(db_session, user_id=user_id, today_override=monday)
             assert again["items_total"] == first["items_total"]
             assert again["exercise_items"] == first["exercise_items"]
         rows_n = await _sprint6_rows(db_session, user_id, monday)
@@ -901,7 +901,7 @@ async def test_sprint6_07_done_and_skipped_exercise_items_are_never_rewritten(
             {"user_id": user_id, "days": [2, 3, 4], "daily_minutes": 120},
         )
         monday = await _sprint6_monday(db_session)
-        await study_plan_service.generate_plan(db_session, today_override=monday)
+        await study_plan_service.generate_plan(db_session, user_id=user_id, today_override=monday)
 
         rows = await _sprint6_rows(db_session, user_id, monday)
         scheduled_exercises = [
@@ -927,8 +927,8 @@ async def test_sprint6_07_done_and_skipped_exercise_items_are_never_rewritten(
         assert frozen[skipped_id][0] == "skipped"
         count_before = len(await _sprint6_rows(db_session, user_id, monday))
 
-        await study_plan_service.generate_plan(db_session, today_override=monday)
-        await study_plan_service.generate_plan(db_session, today_override=monday)
+        await study_plan_service.generate_plan(db_session, user_id=user_id, today_override=monday)
+        await study_plan_service.generate_plan(db_session, user_id=user_id, today_override=monday)
         rows_after = await _sprint6_rows(db_session, user_id, monday)
         for item_id in (done_id, skipped_id):
             current = next(row for row in rows_after if int(row["id"]) == item_id)
@@ -964,7 +964,7 @@ async def test_sprint6_08_patch_works_for_exercise_items(
             {"user_id": user_id, "days": [2, 3, 4], "daily_minutes": 120},
         )
         monday = await _sprint6_monday(db_session)
-        await study_plan_service.generate_plan(db_session, today_override=monday)
+        await study_plan_service.generate_plan(db_session, user_id=user_id, today_override=monday)
         rows = await _sprint6_rows(db_session, user_id, monday)
         target = next(
             row

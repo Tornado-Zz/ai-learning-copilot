@@ -939,7 +939,7 @@ async def test_21_the_plan_schedules_at_most_one_review_a_day_for_due_rows(
     # 集成库里可能已有真实使用留下的到期行：断言只依赖"到期上界"，不假定绝对条数
     assert due_items >= 2
 
-    payload = await study_plan_service.generate_plan(db_session)
+    payload = await study_plan_service.generate_plan(db_session, user_id=user_id)
 
     rows = await _week_rows(db_session, user_id, week_start)
     assert len(rows) >= 1, "有到期复习且额度足够时必须排进复习"
@@ -965,7 +965,7 @@ async def test_21_the_plan_schedules_at_most_one_review_a_day_for_due_rows(
     assert all(bucket["minutes"] <= budget for bucket in per_date.values()), per_date
 
     # 同周再生成一次：幂等，既有 review 行数不变
-    again = await study_plan_service.generate_plan(db_session)
+    again = await study_plan_service.generate_plan(db_session, user_id=user_id)
     rows_again = await _week_rows(db_session, user_id, week_start)
     assert len(rows_again) == len(rows)
     assert again["review_items"] == len(rows)
@@ -1003,7 +1003,7 @@ async def test_22_a_full_day_gets_neither_a_review_nor_an_exercise(
         await _seed_review_row(db_session, user_id, exercise_id, next_review_on=today)
     assert await _due_review_count(db_session, user_id, week_start) >= 2, "到期行确实存在"
 
-    payload = await study_plan_service.generate_plan(db_session)
+    payload = await study_plan_service.generate_plan(db_session, user_id=user_id)
 
     assert await _week_rows(db_session, user_id, week_start) == []
     per_date = await _planned_minutes_by_date(db_session, user_id, week_start)
@@ -1027,7 +1027,7 @@ async def test_22b_a_due_review_takes_the_slot_before_a_new_exercise(
     # 先把真实使用留下的 pending 行推出窗口：本次比较只由下面塞进来的到期行驱动
     await _park_review_rows(db_session, user_id, far=week_start + timedelta(days=60))
     assert await _due_review_count(db_session, user_id, week_start) == 0
-    await study_plan_service.generate_plan(db_session)
+    await study_plan_service.generate_plan(db_session, user_id=user_id)
     without_review = await _planned_minutes_by_date(db_session, user_id, week_start)
     exercises_before = sum(
         bucket["kinds"].get("exercise", 0) for bucket in without_review.values()
@@ -1037,7 +1037,7 @@ async def test_22b_a_due_review_takes_the_slot_before_a_new_exercise(
 
     exercise_id = (await _exercise_ids(db_session, 1))[0]
     await _seed_review_row(db_session, user_id, exercise_id, next_review_on=today)
-    payload = await study_plan_service.generate_plan(db_session)
+    payload = await study_plan_service.generate_plan(db_session, user_id=user_id)
 
     rows = await _week_rows(db_session, user_id, week_start)
     assert rows, "有到期复习且额度够 15 分钟时必须排进复习"
