@@ -1,6 +1,6 @@
 # API 参考（v0.1.1）
 
-本文档描述 **v0.1.1 实际注册的 28 个操作 / 27 条路径**，与实际运行的 `GET /openapi.json` 逐条核对过（`/exercises/{id}/submissions` 有 GET 与 POST 两个操作）。
+本文档描述 **v0.1.2 实际注册的 31 个操作 / 30 条路径**，与实际运行的 `GET /openapi.json` 逐条核对过（`/exercises/{id}/submissions` 有 GET 与 POST 两个操作）。
 契约来源：[SPRINT1A_CONTRACT.md](SPRINT1A_CONTRACT.md) §6；实现来源：`apps/api/app/api/v1/routes/`。
 
 - 基地址：`http://127.0.0.1:8000`
@@ -63,7 +63,7 @@
 
 ---
 
-## 3. 端点总览（28 条操作 / 27 条路径）
+## 3. 端点总览（31 条操作 / 30 条路径）
 
 | # | 方法 | 路径 | 说明 |
 | --- | --- | --- | --- |
@@ -95,6 +95,9 @@
 | 26 | POST | `/api/v1/knowledge/ingest` | 知识入库（默认关闭） |
 | 27 | GET | `/api/v1/progress/overview` | 学习进度聚合：课程 / 本周计划 / 练习证据 / 能力等级 / 7 天活动 |
 | 28 | GET | `/api/v1/capstone/readiness` | 结业作品四条达标要求（真实数据推导，提交与评审未实现） |
+| 29 | GET | `/api/v1/review/items` | 错题本列表（`due=1` 只看今天到期） |
+| 30 | POST | `/api/v1/review/items/{item_id}/result` | 记录一次复习结果并推进间隔 / 置 `done` |
+| 31 | GET | `/api/v1/review/summary` | 待复习 / 今日到期 / 已完成 / 下次到期 |
 
 ---
 
@@ -285,6 +288,30 @@
 
 > `ready` = 四条 `met` 全为 `true`。两个端点**只读**：调用前后所有业务表行数不变（有集成测试断言）。
 > 响应中的 `note` 明确写明「作品提交与人工评审流程尚未实现」——本端点不给任何提交、评审或评分能力。
+
+---
+
+### 4.10 错题本与间隔复习（review）— v0.1.2 新增
+
+| 方法 | 路径 | 成功 | 说明 |
+| --- | --- | --- | --- |
+| GET | `/api/v1/review/items?due=1&limit=20` | 200 `{items[], total, due_total}` | `due=1` 只返回 `status='pending' AND next_review_on <= 今天`；排序 `next_review_on ASC, id ASC` |
+| POST | `/api/v1/review/items/{item_id}/result` | 200 `{id, streak, interval_days, next_review_on, status, due}` | body `{passed: bool}`；行不存在或不属于当前用户 → 404 `NOT_FOUND` |
+| GET | `/api/v1/review/summary` | 200 `{pending, due_today, done, next_due_on}` | 无数据时全 0、`next_due_on=null`，不报错 |
+
+间隔调度规则（`apps/api/app/services/review.py`）：
+
+| 事件 | `streak` | `interval_days` | `next_review_on` | `status` |
+| --- | --- | --- | --- | --- |
+| 练习答错（`is_passed=false`） | 归 0 | 1 | 今天 + 1 天 | `pending` |
+| 答对且存在待复习行，第 1 次 | 1 | 3 | 今天 + 3 天 | `pending` |
+| 答对第 2 次 | 2 | 7 | 今天 + 7 天 | `pending` |
+| 答对第 3 次及以上 | ≥3 | 14 | 今天 + 14 天 | **`done`** |
+| 答对但无复习行 | — | — | — | 不建行（不制造噪声） |
+
+> 「今天」按 `users.timezone` 计算，与周计划使用同一个时钟。**行永不删除**，`done` 只是状态。
+> 周计划会为 `next_review_on` 落在 `[今天, 本周日]` 的待复习项排入 `kind='review'`，且**排在当天的新练习之前**（复习优先占位）。
+> **逾期复习（`next_review_on < 今天`）不会进入周计划**，只在 `GET /review/items?due=1` 出现——这是已冻结的口径，属已知限制。
 
 ---
 
