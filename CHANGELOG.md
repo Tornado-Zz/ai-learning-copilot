@@ -5,6 +5,23 @@
 
 ## [Unreleased]
 
+## [0.1.9] — 2026-11-04
+
+文档一致性总检：把 7 份文档与当前实现逐条对齐。**这一轮没有改任何代码**，只改说法。
+
+### Fixed
+
+- **`docs/DATABASE.md` 与实现严重不符**：设计稿里有 4 张**从未建过**的表（`exercise_test_cases`、`mistakes`、`review_tasks`、`projects`），而实际存在的 `review_items`、`capstone_submissions`、`knowledge_sources`、`knowledge_chunks` **完全没写**。新增第 0 节「实现现状（as-built）」：列出实际 15 张表与迁移 head，逐条说明那 4 张设计稿表**被什么替代**（自检用例进 `exercises.visible_tests`；错题本与复习合并为 `review_items`，且间隔是 1/3/7/14 天而**不是**设计稿写的 1/3/7/14/30 天；项目实践改为 `capstone_submissions`），并声明第 4 节仍是冻结设计基线。
+- **README 停在 v0.1.1**：迁移写 `0007`（实际 `0010`）、`28 个端点`（实际 37 操作 / 34 路径）、`13 条页面路由`（实际 14）。
+- **README 的质量门禁表会误导贡献者**：仍写着集成档「需要预置数据库、在全新数据库上会失败」。该说法自 hermetic 化之后已不成立，现改为「全新数据库同样全绿」。同步补上 CI 的 `ruff check` 步骤与 head 校验。
+- `docs/API.md`、`docs/README.md`、`CONTRIBUTING.md`、`docs/PUBLISHING.md`、`docs/BUILD_PLAN.md` 各自的过期版本号、端点计数与提交/标签快照。
+
+### 数据来源（本轮的每个数字都是量出来的）
+
+- 表与迁移：`information_schema.tables` + `migrations/versions/` → 15 张表、10 个版本、head `0010`。
+- 端点：`GET /openapi.json` → 34 paths / 37 operations。
+- 页面：`find src/app -name page.tsx` → 14 条（Next 构建输出里的 17 含 `_not-found` 等内部条目）。
+
 ## [0.1.8] — 2026-11-04
 
 开源发布前的依赖与元数据审计。
