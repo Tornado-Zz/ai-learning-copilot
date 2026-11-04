@@ -32,6 +32,11 @@ AI_UNAVAILABLE = "AI_UNAVAILABLE"
 AI_TIMEOUT = "AI_TIMEOUT"
 AI_QUOTA_EXCEEDED = "AI_QUOTA_EXCEEDED"
 AI_UPSTREAM_ERROR = "AI_UPSTREAM_ERROR"
+# v0.1.3 capstone. Only a draft accepts edits or a first submission, only a
+# submitted work accepts a verdict, and the verdict is always the learner's own,
+# which the request has to confirm explicitly.
+CAPSTONE_INVALID_STATE = "CAPSTONE_INVALID_STATE"
+SELF_REVIEW_NOT_CONFIRMED = "SELF_REVIEW_NOT_CONFIRMED"
 
 _CODE_BY_STATUS = {
     404: NOT_FOUND,
@@ -105,6 +110,26 @@ def ai_upstream_error(reason: str) -> ApiError:
         AI_UPSTREAM_ERROR,
         "AI 导师上游调用失败，请稍后重试",
         {"reason": reason},
+    )
+
+
+def capstone_invalid_state(current_status: str, action: str) -> ApiError:
+    """409: the row exists, but its status does not allow this transition."""
+    return ApiError(
+        409,
+        CAPSTONE_INVALID_STATE,
+        "当前状态不允许该操作",
+        {"current_status": current_status, "action": action},
+    )
+
+
+def self_review_not_confirmed() -> ApiError:
+    """400: the verdict is the learner's own, so the body must say so."""
+    return ApiError(
+        400,
+        SELF_REVIEW_NOT_CONFIRMED,
+        "请先确认这是你自己对作品的评审结论",
+        {"reason": "self_review_confirmed_required"},
     )
 
 

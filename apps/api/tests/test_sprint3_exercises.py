@@ -31,12 +31,18 @@ pytestmark = pytest.mark.integration
 
 API_DIR = Path(__file__).resolve().parents[1]
 REVISION = "0004_sprint3_exercises"
-# Sprint 4 追加 0005、Sprint 5 追加 0006、Sprint 6 追加 0007、v0.1.2 追加 0008 后
-# head 前移四位；0004 建的表与列必须保持原样。
-HEAD_REVISION = "0008_review_items"
+# Sprint 4 追加 0005、Sprint 5 追加 0006、Sprint 6 追加 0007、v0.1.2 追加 0008、
+# v0.1.3 追加 0009 后 head 继续前移；0004 建的表与列必须保持原样。
+HEAD_REVISION = "0010_capstone_review_requires_reviewer"
 # 0005 与 0006 各建的表：结构的正确性由 Sprint 4 / Sprint 5 的测试负责，
 # 这里只需要把它们算进"已存在的表"集合。
-LATER_TABLES = {"ai_interactions", "knowledge_sources", "knowledge_chunks", "review_items"}
+LATER_TABLES = {
+    "ai_interactions",
+    "knowledge_sources",
+    "knowledge_chunks",
+    "review_items",
+    "capstone_submissions",
+}
 ANSWER_KEYS = ("required_patterns", "forbidden_patterns", "expected_output")
 
 EXERCISE_COLUMNS = {

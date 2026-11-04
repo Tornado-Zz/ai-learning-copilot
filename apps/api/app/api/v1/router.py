@@ -6,6 +6,7 @@ from fastapi import APIRouter
 
 from app.api.v1.routes import (
     ai,
+    capstone,
     diagnostics,
     exercises,
     health,
@@ -30,3 +31,4 @@ api_router.include_router(ai.router)
 api_router.include_router(knowledge.router)
 api_router.include_router(progress.router)
 api_router.include_router(review.router)
+api_router.include_router(capstone.router)

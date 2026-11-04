@@ -23,10 +23,10 @@ pytestmark = pytest.mark.integration
 API_DIR = Path(__file__).resolve().parents[1]
 REVISION = "0003_sprint2_lessons_and_plan"
 BASELINE_REVISION = "0002_sprint1a_identity_diagnostics"
-# S3 阶段 B 追加 0004、Sprint 4 追加 0005、Sprint 5 追加 0006、Sprint 6 追加 0007
-# 后 head 变成 0007；本文件仍只校验 0003 建的 3 张表。
+# S3 阶段 B 追加 0004、Sprint 4 追加 0005、Sprint 5 追加 0006、Sprint 6 追加 0007、
+# v0.1.2 追加 0008、v0.1.3 追加 0009 后 head 继续前移；本文件仍只校验 0003 建的 3 张表。
 SPRINT3_REVISION = "0004_sprint3_exercises"
-HEAD_REVISION = "0008_review_items"
+HEAD_REVISION = "0010_capstone_review_requires_reviewer"
 
 # 0003 之前就已存在的 5 张表：迁移只许加表，不许让这些表少行。
 PRE_MIGRATION_TABLES = (

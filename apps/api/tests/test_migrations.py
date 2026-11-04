@@ -25,7 +25,10 @@ SPRINT3_REVISION = "0004_sprint3_exercises"
 SPRINT4_REVISION = "0005_sprint4_ai_interactions"
 SPRINT5_REVISION = "0006_sprint5_knowledge"
 SPRINT6_REVISION = "0007_sprint6_plan_exercise_targets"
-HEAD_REVISION = "0008_review_items"
+# v0.1.2 的 0008 建了 review_items；v0.1.3 的 0009 只建 capstone_submissions。
+REVIEW_REVISION = "0008_review_items"
+CAPSTONE_REVISION = "0009_capstone_submissions"
+HEAD_REVISION = "0010_capstone_review_requires_reviewer"
 SPRINT2_TABLES = {"lessons", "learning_progress", "study_plan_items"}
 SPRINT3_TABLES = {"exercises", "submissions"}
 
@@ -151,7 +154,9 @@ async def test_01_alembic_upgrade_head_succeeds_and_reports_head(database_url: s
     assert f"{SPRINT3_REVISION} -> {SPRINT4_REVISION}" in history.stdout
     assert f"{SPRINT4_REVISION} -> {SPRINT5_REVISION}" in history.stdout
     assert f"{SPRINT5_REVISION} -> {SPRINT6_REVISION}" in history.stdout
-    assert f"{SPRINT6_REVISION} -> {HEAD_REVISION}" in history.stdout
+    assert f"{SPRINT6_REVISION} -> {REVIEW_REVISION}" in history.stdout
+    assert f"{REVIEW_REVISION} -> {CAPSTONE_REVISION}" in history.stdout
+    assert f"{CAPSTONE_REVISION} -> {HEAD_REVISION}" in history.stdout
     current = subprocess.run(
         [sys.executable, "-m", "alembic", "current"],
         cwd=API_DIR,
@@ -452,9 +457,164 @@ async def test_05_upgrade_0008_keeps_every_existing_row(migration_probe) -> None
         before = await probe.counts(EXISTING_TABLES)
         assert before["users"] >= 1 and before["lessons"] >= 1 and before["exercises"] >= 1
 
-        probe.upgrade(HEAD_REVISION)
+        probe.upgrade(REVIEW_REVISION)
 
         after = await probe.counts(EXISTING_TABLES)
         assert after == before, {table: (before[table], after[table]) for table in before}
         assert await probe.counts(("review_items",)) == {"review_items": 0}
 
+
+# ---------------------------------------------------------------------------
+# v0.1.3: 0010_capstone_review_requires_reviewer - 一张表，既有 14 张产品表一行不动
+# ---------------------------------------------------------------------------
+# 0008 之后存在的全部产品表：0009 不得改动其中任何一张的行。
+TABLES_BEFORE_0009 = (*EXISTING_TABLES, "review_items")
+CAPSTONE_COLUMNS = {
+    "id",
+    "user_id",
+    "title",
+    "summary",
+    "repo_url",
+    "run_instructions",
+    "self_checks",
+    "readiness_snapshot",
+    "status",
+    "verdict",
+    "reviewer",
+    "reviewer_note",
+    "submitted_at",
+    "reviewed_at",
+    "created_at",
+    "updated_at",
+}
+CAPSTONE_NULLABLE = {
+    "repo_url",
+    "readiness_snapshot",
+    "verdict",
+    "reviewer",
+    "reviewer_note",
+    "submitted_at",
+    "reviewed_at",
+}
+
+
+async def test_06_capstone_submissions_has_the_frozen_structure(
+    db_session: AsyncSession,
+) -> None:
+    columns = {
+        row["column_name"]: row
+        for row in (
+            await db_session.execute(
+                text(
+                    "SELECT column_name, is_nullable, data_type, column_default "
+                    "FROM information_schema.columns "
+                    "WHERE table_schema = 'public' AND table_name = 'capstone_submissions'"
+                )
+            )
+        ).mappings()
+    }
+    assert set(columns) == CAPSTONE_COLUMNS
+    assert {name for name, row in columns.items() if row["is_nullable"] == "YES"} == (
+        CAPSTONE_NULLABLE
+    )
+    # 冻结类型：三段长文本是 text，两个 jsonb，时间戳全是 timestamptz。
+    assert columns["title"]["data_type"] == "character varying"
+    assert (columns["summary"]["data_type"], columns["run_instructions"]["data_type"]) == (
+        "text",
+        "text",
+    )
+    assert (columns["self_checks"]["data_type"], columns["readiness_snapshot"]["data_type"]) == (
+        "jsonb",
+        "jsonb",
+    )
+    for name in ("submitted_at", "reviewed_at", "created_at", "updated_at"):
+        assert columns[name]["data_type"] == "timestamp with time zone", name
+    # 默认值：自检清单是空数组，状态从 draft 开始。
+    assert "'[]'::jsonb" in columns["self_checks"]["column_default"]
+    assert "'draft'::character varying" in columns["status"]["column_default"]
+
+    constraints = {
+        row["conname"]: row["contype"]
+        for row in (
+            await db_session.execute(
+                text(
+                    "SELECT c.conname, c.contype::text AS contype FROM pg_constraint c "
+                    "JOIN pg_class t ON t.oid = c.conrelid "
+                    "JOIN pg_namespace n ON n.oid = t.relnamespace "
+                    "WHERE n.nspname = 'public' AND t.relname = 'capstone_submissions'"
+                )
+            )
+        ).mappings()
+    }
+    checks = {name for name, kind in constraints.items() if kind == "c"}
+    assert {
+        "ck_capstone_submissions_status",
+        "ck_capstone_submissions_verdict",
+        "ck_capstone_submissions_reviewer",
+        "ck_capstone_submissions_reviewed_complete",
+    } <= checks
+
+    # 三态与自评都是不可协商的字面量：状态只有三种，结论只有两种，评审者只有 'self'。
+    check_definitions = (
+        await db_session.execute(
+            text(
+                "SELECT string_agg(pg_get_constraintdef(oid), ' ') FROM pg_constraint "
+                "WHERE conrelid = 'capstone_submissions'::regclass "
+                "AND conname LIKE 'ck_capstone_submissions_%'"
+            )
+        )
+    ).scalar_one()
+    for literal in ("draft", "submitted", "reviewed", "pass", "needs_work", "self"):
+        assert literal in check_definitions, literal
+
+    # 列表与详情的访问路径：(user_id, created_at DESC)。
+    index_definitions = {
+        row["indexname"]: row["indexdef"]
+        for row in (
+            await db_session.execute(
+                text(
+                    "SELECT indexname, indexdef FROM pg_indexes "
+                    "WHERE schemaname = 'public' AND tablename = 'capstone_submissions'"
+                )
+            )
+        ).mappings()
+    }
+    assert "ix_capstone_submissions_user_created" in index_definitions
+    assert "created_at DESC" in index_definitions[
+        "ix_capstone_submissions_user_created"
+    ]
+
+    # user_id 是 CASCADE：作品是用户私有数据，用户没了它没有独立价值。
+    delete_actions = {
+        row["column"]: row["confdeltype"]
+        for row in (
+            await db_session.execute(
+                text(
+                    "SELECT a.attname AS column, c.confdeltype::text AS confdeltype "
+                    "FROM pg_constraint c "
+                    "JOIN pg_class t ON t.oid = c.conrelid "
+                    "JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum = c.conkey[1] "
+                    "WHERE c.contype = 'f' AND t.relname = 'capstone_submissions'"
+                )
+            )
+        ).mappings()
+    }
+    assert delete_actions == {"user_id": "c"}
+
+
+async def test_07_upgrade_0009_keeps_every_existing_row(migration_probe) -> None:
+    """0008 -> 0009 只多一张空表：既有 14 张产品表逐表行数相等。"""
+    async with migration_probe() as probe:
+        probe.upgrade(REVIEW_REVISION)
+        await probe.insert_sentinels(TABLES_BEFORE_0009)
+        before = await probe.counts(TABLES_BEFORE_0009)
+        assert before["users"] >= 1 and before["lessons"] >= 1 and before["exercises"] >= 1
+        # 探针库在 0008 上是全新的：错题本还没有任何行可丢。
+        assert before["review_items"] == 0
+
+        probe.upgrade(HEAD_REVISION)
+
+        after = await probe.counts(TABLES_BEFORE_0009)
+        assert after == before, {table: (before[table], after[table]) for table in before}
+        assert await probe.counts(("capstone_submissions",)) == {"capstone_submissions": 0}
+        assert f"{HEAD_REVISION} (head)" in probe.current()
