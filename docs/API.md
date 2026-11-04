@@ -1,6 +1,6 @@
-# API 参考（v0.1.0）
+# API 参考（v0.1.1）
 
-本文档描述 **v0.1.0 实际注册的 26 个端点**，与实际运行的 `GET /openapi.json`（26 个端点、70 个 schema）逐条核对过。
+本文档描述 **v0.1.1 实际注册的 28 个操作 / 27 条路径**，与实际运行的 `GET /openapi.json` 逐条核对过（`/exercises/{id}/submissions` 有 GET 与 POST 两个操作）。
 契约来源：[SPRINT1A_CONTRACT.md](SPRINT1A_CONTRACT.md) §6；实现来源：`apps/api/app/api/v1/routes/`。
 
 - 基地址：`http://127.0.0.1:8000`
@@ -63,7 +63,7 @@
 
 ---
 
-## 3. 端点总览（26 条）
+## 3. 端点总览（28 条操作 / 27 条路径）
 
 | # | 方法 | 路径 | 说明 |
 | --- | --- | --- | --- |
@@ -93,6 +93,8 @@
 | 24 | GET | `/api/v1/knowledge/search` | 知识库关键词检索 |
 | 25 | GET | `/api/v1/knowledge/sources` | 知识来源清单与新鲜度 |
 | 26 | POST | `/api/v1/knowledge/ingest` | 知识入库（默认关闭） |
+| 27 | GET | `/api/v1/progress/overview` | 学习进度聚合：课程 / 本周计划 / 练习证据 / 能力等级 / 7 天活动 |
+| 28 | GET | `/api/v1/capstone/readiness` | 结业作品四条达标要求（真实数据推导，提交与评审未实现） |
 
 ---
 
@@ -254,6 +256,35 @@
 
 成功 200：`results[]`（逐条来源的状态与 `error_code`）、`sources_total`、`chunks_total`。幂等：内容未变则跳过；单个来源失败不影响其他来源（**200 响应内**标 `error_code=BLOCKED_HOST` / `INGEST_ERROR`）。
 错误：**403 `INGEST_DISABLED`**（`KNOWLEDGE_INGEST_ENABLED` 未开启，未做任何数据库或网络操作）；422 `VALIDATION_ERROR`（`urls` 为空串、超长或超过 20 条）。
+
+---
+
+### 4.9 学习进度与结业判定（progress / capstone）— v0.1.1 新增
+
+| 方法 | 路径 | 成功 | 说明 |
+| --- | --- | --- | --- |
+| GET | `/api/v1/progress/overview` | 200 `{lessons, plan, practice, capability, activity}` | 只读聚合，无任何演示常数 |
+| GET | `/api/v1/capstone/readiness` | 200 `{ready, requirements[], note}` | 四条要求全部由真实行推导 |
+
+`progress/overview` 字段口径：
+
+- `lessons`：`total / completed / in_progress / not_started` 只统计 `status='published' AND deleted_at IS NULL` 的课程；`minutes_completed` 为已完成课程的 `estimated_minutes` 之和。
+- `plan`：**只统计当周**（`week_start` = 按 `users.timezone` 计算的周一），含全部 `kind`；`minutes_scheduled` 只累加 `status='scheduled'` 行，`minutes_done` 只累加 `done` 行。
+- `practice`：`by_evidence` 按 `submissions.verification_method` 分组，**只列出实际出现的键**，且 `sum(by_evidence) == submissions_total`。
+- `capability.average_level` 是 `user_skill_levels` 全行的算术平均（1 位小数）；`domains[]` 是每个能力域**当前**等级（与平均值是两个不同的统计量，不要混用）。
+- `activity`：最近 7 天（含今天）每天 `done` 计划项的分钟之和，**缺失日期补 0**，数组恒为 7 项。
+
+`capstone/readiness` 的四条要求与判定：
+
+| key | 含义 | 判定 |
+| --- | --- | --- |
+| `lessons_completed` | 完成全部已发布课程 | `learning_progress.status='completed'` 计数 ≥ 课程总数 |
+| `exercises_passed` | 通过至少 6 道练习 | **去重**后 `submissions.is_passed=true` 的练习题数 |
+| `domains_at_l2` | 至少 3 个能力域达到 L2 | 每域**当前**等级 ≥ 2 的域数 |
+| `plan_items_done` | 完成至少 5 个计划任务 | `study_plan_items.status='done'` 行数 |
+
+> `ready` = 四条 `met` 全为 `true`。两个端点**只读**：调用前后所有业务表行数不变（有集成测试断言）。
+> 响应中的 `note` 明确写明「作品提交与人工评审流程尚未实现」——本端点不给任何提交、评审或评分能力。
 
 ---
 
