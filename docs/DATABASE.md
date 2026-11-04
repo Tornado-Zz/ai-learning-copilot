@@ -5,6 +5,54 @@
 **当前落地程度**：只有 Alembic 骨架 + 空基线迁移；尚未创建任何业务表。本文档中的所有表、字段、索引与约束都是待实现的设计基线。
 
 **上游文档**：PRD.md（功能需求）、ARCHITECTURE.md（分层与调用链）、ROADMAP.md（哪张表在哪个 Sprint 落地）
+---
+
+## 0. 实现现状（as-built，v0.1.8 实测）
+
+> **读法**：本文档的历史部分（第 2 节起）是 **Sprint 1A 冻结的设计基线**；本节是**当前代码真实建了什么**。
+> 两者不一致时，以本节 + `apps/api/migrations/versions/` + 实际数据库为准。
+
+### 0.1 实际存在的 15 张业务表
+
+```sql
+-- 实测：information_schema.tables 中 public schema、排除 alembic_version
+users, user_profiles, skills, user_skill_levels,
+lessons, exercises, submissions, learning_progress,
+study_plan_items, ai_interactions,
+review_items, capstone_submissions,
+knowledge_sources, knowledge_chunks, diagnostic_attempts
+```
+
+迁移：`0001` → `0010`（head `0010_capstone_review_requires_reviewer`），共 10 个版本文件。
+
+### 0.2 设计稿里有、但**没有建**的表，以及实际用了什么
+
+| 设计稿（第 4 节小节） | 实际 |
+| --- | --- |
+| `4.7 exercise_test_cases`（自检用例表） | **未建表**。自检用例存在 `exercises.visible_tests`（JSONB 数组）里；首版静态规则判题不需要独立的用例表 |
+| `4.10 mistakes`（错题本条目） | **合并进 `review_items`**：答错即写一行，`source_submission_id` 记录来源提交 |
+| `4.11 review_tasks`（间隔复习任务） | **由 `review_items` 承担**。但间隔阶梯是 **1 / 3 / 7 / 14 天**（连续 3 次通过置 `done`），**不是**设计稿写的 1/3/7/14/30 天 |
+| `4.12 projects`（项目实践记录） | **由 `capstone_submissions` 承担**：`draft → submitted → reviewed` 状态机，提交时快照四条达标要求 |
+
+### 0.3 实际有、但设计稿**没有覆盖**的表
+
+| 表 | 迁移 | 用途 |
+| --- | --- | --- |
+| `review_items` | `0008` | 错题与间隔复习（替代 4.10 + 4.11） |
+| `capstone_submissions` | `0009`（`0010` 修正约束） | 结业作品提交与本人自评（替代 4.12） |
+| `knowledge_sources` | `0006` | 知识来源（域名白名单、内容 hash、抓取时间、状态） |
+| `knowledge_chunks` | `0006` | 知识分块（检索单位，含 `keywords` 与过期判定） |
+
+### 0.4 与设计稿一致的部分
+
+`users`、`user_profiles`、`skills`、`user_skill_levels`、`lessons`、`exercises`、`submissions`、`learning_progress`、`study_plan_items`、`ai_interactions`、`diagnostic_attempts` 共 **11 张表**与第 4 节对应小节一致；字段以迁移文件为准（部分小节在既有列外追加了 Sprint 3–6 的列，例如 `exercises.visible_tests`、`submissions.verification_method`）。
+
+### 0.5 因此第 2 节的 ER 图怎么读
+
+第 2 节的 ER 图与「15 张表全部出现在图中」是按**设计基线**画的，其中 4 条关系对应上面 0.2 的纸面表。实际库的 ER 请以 0.1 + 各迁移文件为准。
+
+---
+
 
 术语与取值口径统一使用：路线 A、能力诊断、AI 导师、提示依赖、开发中。等级 L0–L4 与提示依赖四级（none、hint、partial_code、full_answer）的定义见 PRD.md 第 5.1 与 5.5 节，本文件不另立定义。
 

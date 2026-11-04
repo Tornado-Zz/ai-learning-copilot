@@ -7,7 +7,7 @@
 
 | 项 | 状态 |
 |---|---|
-| 迁移 | `0004_sprint3_exercises`（head），11 张表 |
+| 迁移 | `0004_sprint3_exercises`（head），11 张表 ← **这是 2026-11-04 写规划时的快照**；当前实际为 head `0010_capstone_review_requires_reviewer`、15 张表，见 [DATABASE.md](DATABASE.md) 第 0 节 |
 | 后端 | FastAPI：health/ready、诊断、课程、周计划、练习判题 共 15+ 端点 |
 | 前端 | Next.js 16：`/` `/learn` `/learn/[id]` `/onboarding` `/diagnostic` `/result` `/plan` `/history` `/practice` `/practice/[id]` |
 | 数据 | lessons 5、exercises 10、submissions 12、user_skill_levels 30（L3+ = 0） |

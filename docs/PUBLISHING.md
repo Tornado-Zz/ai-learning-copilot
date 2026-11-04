@@ -1,6 +1,6 @@
 # 发布到 GitHub
 
-> 本仓库当前状态：分支 `main`、6 个提交、标签 `v0.1.0`、工作区干净、**未配置 remote**。
+> 本仓库当前状态：分支 `main`、30+ 个提交、标签 `v0.1.0` … `v0.1.8`（9 个）、工作区干净、**未配置 remote**。
 > 下面两种方式任选其一；推荐方式 A——它不需要把任何凭据交给别人。
 
 ## 发布前自检（本机执行，全绿才推）
@@ -27,11 +27,11 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\smoke.ps1   # 17 �
 ```powershell
 git remote add origin https://github.com/<你的账号>/<仓库名>.git
 git push -u origin main
-git push origin v0.1.0
+git push origin --tags          # 推送全部 9 个标签；也可只推某一个：git push origin v0.1.8
 ```
 
 3. 推送后确认两件事：
-   - GitHub 仓库首页能看到标签 `v0.1.0`；
+   - GitHub 仓库首页能看到 9 个标签（`v0.1.0` … `v0.1.8`）；
    - **Actions 里 CI 两个 job（`api`、`web`）都是绿色**。CI 用真实 PostgreSQL 17 起库并跑两档测试，不依赖任何 secret。
 
 > 若使用 SSH：`git remote add origin git@github.com:<账号>/<仓库名>.git`，其余相同。
@@ -64,4 +64,4 @@ PostgreSQL 数据在 Docker volume 里，`infra/docker-compose.yml` 只提供本
 ## 推送之后
 
 - 仓库设置里把 `main` 设为默认分支并开启分支保护（要求 CI 通过才能合并）。
-- 首次发布可在 Releases 里基于标签 `v0.1.0` 写发布说明，内容可直接取自 `CHANGELOG.md` 的 `[0.1.0]` 段。
+- 首次发布可在 Releases 里基于最新标签 `v0.1.8` 写发布说明；每个标签对应的内容都能在 `CHANGELOG.md` 的同版本段落里找到。

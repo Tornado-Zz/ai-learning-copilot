@@ -3,12 +3,12 @@
 面向**非计算机理工科背景、编程基础薄弱、希望转向 AI 应用开发**的初学者的自学平台。
 目标不是把课程播放完，而是让学习者最终能**独立开发并展示一个简单的 AI 应用**。
 
-> **当前版本 v0.1.1（单用户本地 MVP）**：数据库迁移 head 为 `0007_sprint6_plan_exercise_targets`，
-> 后端已注册 **28 个端点**，前端 **13 条页面路由**全部可访问。
+> **当前版本 v0.1.8（单用户本地 MVP）**：数据库迁移 head 为 `0010_capstone_review_requires_reviewer`（共 10 个版本），
+> 后端共 **37 个操作 / 34 条路径**、**15 张业务表**；前端 **14 条页面路由**全部可访问。
 > 已完成：学习档案、20 题能力诊断与六域画像、5 节最小课程与进度、周计划（含练习项）、
 > 10 道练习的静态规则判题、DeepSeek AI 导师（额度与超时护栏）、知识库入库与引用检索。
 > **未完成**：登录鉴权、真实代码执行沙箱、第三方人工评审（作品可提交并自评，但没有第二个人能评审）。
-> 详见下方 [v0.1.1 能力清单](#v011-已实现--未实现)。
+> 详见下方 [v0.1.8 能力清单](#v018-已实现--未实现)。
 
 ## 首版范围：路线 A
 
@@ -18,7 +18,7 @@ Python 基础 → 编程实践 → API → LLM → RAG/Agent 基础 → 简单 A
 
 产品原则：教用户独立解决问题而不是直接给答案；学习评估尽量基于可验证数据；允许自由使用 AI 提示但必须记录提示依赖；**不把课程完成率等同于掌握程度**。
 
-## v0.1.1 已实现 / 未实现
+## v0.1.8 已实现 / 未实现
 
 ### ✅ 已实现（可运行、有接口、有测试）
 
@@ -32,7 +32,7 @@ Python 基础 → 编程实践 → API → LLM → RAG/Agent 基础 → 简单 A
 | 练习与判题 | 10 道练习；提交走**静态规则 + 自报输出比对**判定，**不执行任何提交的代码**，不自动晋升技能等级 |
 | AI 导师 | `POST /api/v1/ai/tutor`：`assistance_level` 四档、每次调用落库用量、单次超时（`AI_TIMEOUT_SECONDS`）、每日 token 上限（`AI_DAILY_TOKEN_LIMIT`）、缺 Key 时 503 且不发起上游请求 |
 | 知识库 | 白名单文档入库（默认关闭）、关键词检索、导师回答附带引用与新鲜度标记 |
-| 前端 | 13 条页面路由、侧栏导航、深浅色主题、系统状态（后端在线 / 数据库已连接 / 离线三态） |
+| 前端 | 14 条页面路由、侧栏导航、深浅色主题、系统状态（后端在线 / 数据库已连接 / 离线三态） |
 | 工程化 | 统一错误体 + `request_id`、Alembic 迁移到 0007、两档 Pytest、ESLint / tsc / build、GitHub Actions CI |
 
 | 结业作品提交与自评 | `draft → submitted → reviewed` 状态机；提交时把四条达标要求**快照存档**；自评必须显式确认「本次是本人自评」，数据库层禁止写入非 `self` 的评审人 |
@@ -107,7 +107,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\smoke.ps1       # 
 ai-learning-copilot/
 ├─ .github/workflows/ci.yml   # CI：api（postgres + alembic + pytest 两档）/ web（npm ci + tsc + lint + build）
 ├─ apps/
-│  ├─ web/                    # Next.js 16 前端（13 条页面路由）
+│  ├─ web/                    # Next.js 16 前端（14 条页面路由）
 │  │  └─ src/{app,components,lib}
 │  └─ api/                    # FastAPI 后端（uv 管理）
 │     ├─ app/{main.py,core,api/v1,schemas,services,cli}
@@ -229,11 +229,11 @@ Sprint 4 / 5 新增的六个后端变量：`AI_TIMEOUT_SECONDS`、`AI_DAILY_TOKE
 | 检查 | 命令 | 说明 |
 | --- | --- | --- |
 | 后端单元档 | `uv run pytest -q` | 数据库停止也必须全绿 |
-| 后端集成档 | `uv run pytest -q -m integration` | **需要预置数据库**：含「历史行未丢失」类断言（要求库里已有诊断 / 提交记录），**在全新数据库上会失败**，属已知限制 |
-| 迁移 | `uv run alembic upgrade head` + `alembic current` | 应为 `0007_sprint6_plan_exercise_targets (head)` |
+| 后端集成档 | `uv run pytest -q -m integration` | **hermetic**：用例自建夹具（临时库 + 自插基线行），在**全新数据库**上同样全绿 |
+| 迁移 | `uv run alembic upgrade head` + `alembic current` | 应为 `0010_capstone_review_requires_reviewer (head)` |
 | 前端 | `npx tsc --noEmit` / `npm run lint` / `npm run build` | 三项均应退出码 0 |
 
-CI 只有两个 job：`api`（PostgreSQL service + `uv sync --locked` + `alembic upgrade head` + 单元档 + 集成档）与 `web`（`npm ci` + tsc + lint + build），**不使用任何 secret**。
+CI 只有两个 job：`api`（PostgreSQL service + `uv sync --locked` + `ruff check` + `alembic upgrade head` + head 校验 + 单元档 + 集成档）与 `web`（`npm ci` + tsc + lint + build），**不使用任何 secret**。
 
 ## 文档
 
@@ -265,7 +265,7 @@ CI 只有两个 job：`api`（PostgreSQL service + `uv sync --locked` + `alembic
 9. **逾期复习不进周计划**：候选窗口是 `next_review_on` 落在 `[今天, 本周日]`，**已逾期的错题只在 `/review` 页的到期列表出现**，不会被排进本周计划。
 10. **没有第三方评审**：作品提交后的结论一律是本人自评（`reviewer='self'`）；**自动停留计时未实现**（打开课程不写 `learning_progress`）；**逐题解析恒为 `null`**。
 11. **仓库不含截图**：界面以本地实际运行为准，见上文「界面清单（截图占位）」。
-12. **`CHANGELOG.md` 已补到 v0.1.1**：Sprint 2–6 的变更摘要与两轮发布记录都在其中。
+12. **`CHANGELOG.md` 已补到 v0.1.8**：Sprint 2–6 的变更摘要与两轮发布记录都在其中。
 
 ## 许可证
 

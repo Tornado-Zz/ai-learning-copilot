@@ -14,7 +14,7 @@
 | [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md) | 视觉风格、颜色/字体/布局令牌、组件与交互规范 | 改前端界面前 |
 | [SPRINT1A_CONTRACT.md](SPRINT1A_CONTRACT.md) | Sprint 1A 冻结契约：等级证据分层、L0 两态、JSONB 形态、API 契约 | 查接口口径与错误码来源 |
 | [BUILD_PLAN.md](BUILD_PLAN.md) | 建设计划（阶段划分与交付定义） | 想知道「整体节奏」 |
-| [API.md](API.md) | **v0.1.0 全部 26 个端点的实测清单**、统一错误体、`request_id` 说明 | 调接口时 |
+| [API.md](API.md) | **v0.1.8 全部 37 个操作 / 34 条路径的实测清单**、统一错误体、`request_id` 说明 | 调接口时 |
 
 ## 2. 过程记录（reports/，历史存档，不再修订）
 

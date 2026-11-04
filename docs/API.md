@@ -1,6 +1,6 @@
-# API 参考（v0.1.3）
+# API 参考（v0.1.8）
 
-本文档描述 **v0.1.3 实际注册的 37 个操作 / 34 条路径**，与实际运行的 `GET /openapi.json` 逐条核对过（`/exercises/{id}/submissions` 有 GET 与 POST 两个操作）。
+本文档描述 **v0.1.8 实际注册的 37 个操作 / 34 条路径**，与实际运行的 `GET /openapi.json` 逐条核对过（`/exercises/{id}/submissions` 有 GET 与 POST 两个操作）。
 契约来源：[SPRINT1A_CONTRACT.md](SPRINT1A_CONTRACT.md) §6；实现来源：`apps/api/app/api/v1/routes/`。
 
 - 基地址：`http://127.0.0.1:8000`
