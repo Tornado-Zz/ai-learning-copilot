@@ -39,8 +39,10 @@ const pointsTo = new Set();
 const tables = new Set();
 for (const name of migrationFiles) {
   const text = readFileSync(join(MIGRATIONS_DIR, name), 'utf8');
-  const rev = text.match(/^revision\s*=\s*"([^"]+)"/m);
-  const down = text.match(/^down_revision\s*=\s*"([^"]+)"/m);
+  // 迁移文件里两种写法都有：`revision = "..."` 与带标注的 `revision: str = "..."`。
+  // 只匹配前一种会让 head 静默停在旧版本——检查器自己给出过期真值是最危险的失败方式。
+  const rev = text.match(/^revision(?:\s*:\s*[^=\n]+)?\s*=\s*"([^"]+)"/m);
+  const down = text.match(/^down_revision(?:\s*:\s*[^=\n]+)?\s*=\s*"([^"]+)"/m);
   if (rev) revisions.set(rev[1], name);
   if (down && down[1] !== 'None') pointsTo.add(down[1]);
   for (const m of text.matchAll(/CREATE TABLE (?:IF NOT EXISTS )?([a-z_]+)/g)) tables.add(m[1]);
@@ -85,6 +87,9 @@ scan(/(\d+) 个操作/g, '接口操作数', operations);
 scan(/(\d+) 张业务表/g, '业务表数', tables.size);
 scan(/(\d+) 条页面路由/g, '页面路由数', pageRoutes);
 scan(/共 (\d+) 个版本/g, '迁移版本数', migrationFiles.length);
+// 刻意不检查「N 节课程 / N 道练习」：这两个数字在文档里既可能是「当前总数」，也可能是
+// 「Sprint 7 的目标规模」（PRD 的 60 节）或「结业要求 / 排课规则」（至少 6 道练习、
+// 一天最多 1 道）。试过加上，12 条命中全是误报——会喊狼的检查器比没有更糟。
 
 // head 说法：形如 `0010_capstone_review_requires_reviewer (head)`
 for (const { rel, text } of docTexts) {

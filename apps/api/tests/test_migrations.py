@@ -28,7 +28,9 @@ SPRINT6_REVISION = "0007_sprint6_plan_exercise_targets"
 # v0.1.2 的 0008 建了 review_items；v0.1.3 的 0009 只建 capstone_submissions。
 REVIEW_REVISION = "0008_review_items"
 CAPSTONE_REVISION = "0009_capstone_submissions"
-HEAD_REVISION = "0010_capstone_review_requires_reviewer"
+# v0.1.11 的 0011 补上 a3/a4 两节 AI 课与 4 道练习后 head 前移；0010 仍是链上一环。
+CAPSTONE_REVIEW_REVISION = "0010_capstone_review_requires_reviewer"
+HEAD_REVISION = "0011_sprint7_ai_content"
 SPRINT2_TABLES = {"lessons", "learning_progress", "study_plan_items"}
 SPRINT3_TABLES = {"exercises", "submissions"}
 
@@ -156,7 +158,8 @@ async def test_01_alembic_upgrade_head_succeeds_and_reports_head(database_url: s
     assert f"{SPRINT5_REVISION} -> {SPRINT6_REVISION}" in history.stdout
     assert f"{SPRINT6_REVISION} -> {REVIEW_REVISION}" in history.stdout
     assert f"{REVIEW_REVISION} -> {CAPSTONE_REVISION}" in history.stdout
-    assert f"{CAPSTONE_REVISION} -> {HEAD_REVISION}" in history.stdout
+    assert f"{CAPSTONE_REVISION} -> {CAPSTONE_REVIEW_REVISION}" in history.stdout
+    assert f"{CAPSTONE_REVIEW_REVISION} -> {HEAD_REVISION}" in history.stdout
     current = subprocess.run(
         [sys.executable, "-m", "alembic", "current"],
         cwd=API_DIR,
@@ -612,9 +615,11 @@ async def test_07_upgrade_0009_keeps_every_existing_row(migration_probe) -> None
         # 探针库在 0008 上是全新的：错题本还没有任何行可丢。
         assert before["review_items"] == 0
 
-        probe.upgrade(HEAD_REVISION)
+        # 只升到 0010：0011 会往 lessons / exercises 追加种子行，那是新内容而不是
+        # 「丢行」或「改行」，由 tests/test_ai_content.py 单独覆盖。
+        probe.upgrade(CAPSTONE_REVIEW_REVISION)
 
         after = await probe.counts(TABLES_BEFORE_0009)
         assert after == before, {table: (before[table], after[table]) for table in before}
         assert await probe.counts(("capstone_submissions",)) == {"capstone_submissions": 0}
-        assert f"{HEAD_REVISION} (head)" in probe.current()
+        assert CAPSTONE_REVIEW_REVISION in probe.current()

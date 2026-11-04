@@ -34,7 +34,8 @@ BUSINESS_TABLES = {
     "user_skill_levels",
 }
 SPRINT2_TABLES = {"lessons", "learning_progress", "study_plan_items"}
-SEEDED_LESSONS = 5
+# 0003 播种 5 节 Python 基础课，0011 追加 a3/a4 两节 AI 课：干净库上共 7 节。
+SEEDED_LESSONS = 7
 SEEDED_SKILL_CODES = [
     "route_a.a1",
     "route_a.a2",
@@ -171,7 +172,8 @@ async def test_clean_database_upgrades_from_0001_to_head(database_url: str) -> N
 
         assert revision and revision in current.stdout
         assert BUSINESS_TABLES <= tables
-        # Sprint 2 的 0003 在干净库上同样建出 3 张表并写入 5 节课程种子
+        # Sprint 2 的 0003 在干净库上同样建出 3 张表并写入 5 节课程种子，
+        # Sprint 7 的 0011 再追加 2 节 AI 课（a3 API / a4 LLM），共 7 节
         assert SPRINT2_TABLES <= tables
         assert codes == SEEDED_SKILL_CODES
         assert skill_rows == 6

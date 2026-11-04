@@ -33,7 +33,8 @@ API_DIR = Path(__file__).resolve().parents[1]
 REVISION = "0004_sprint3_exercises"
 # Sprint 4 追加 0005、Sprint 5 追加 0006、Sprint 6 追加 0007、v0.1.2 追加 0008、
 # v0.1.3 追加 0009 后 head 继续前移；0004 建的表与列必须保持原样。
-HEAD_REVISION = "0010_capstone_review_requires_reviewer"
+# 0011 追加 a3/a4 两节 AI 课与 4 道练习后 head 前移；0004 建的 2 张表不受影响。
+HEAD_REVISION = "0011_sprint7_ai_content"
 # 0005 与 0006 各建的表：结构的正确性由 Sprint 4 / Sprint 5 的测试负责，
 # 这里只需要把它们算进"已存在的表"集合。
 LATER_TABLES = {
@@ -205,6 +206,10 @@ async def test_ten_exercises_two_per_lesson_and_every_lesson_exists(
             text(
                 "SELECT e.code, e.lesson_id, e.order_index, l.code AS lesson_code, l.status "
                 "FROM exercises e JOIN lessons l ON l.id = e.lesson_id "
+                # 只断言 0004 播种的那 5 节 Python 课：0011 后来又给 a3/a4 两节新课
+                # 各加了 2 道练习，那是新内容，不在 0004 的验收范围内。
+                "WHERE l.code IN ('route_a.py.variables', 'route_a.py.control_flow', "
+                "'route_a.py.list_dict', 'route_a.py.functions', 'route_a.py.debugging') "
                 "ORDER BY e.lesson_id, e.order_index"
             )
         )
