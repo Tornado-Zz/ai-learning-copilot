@@ -5,6 +5,28 @@
 
 ## [Unreleased]
 
+## [0.1.7] — 2026-11-04
+
+开源前的代码质量收尾：后端补 lint、前端清死代码、修掉工具链里两处会伤到使用者的坑。
+
+### Added
+
+- **后端 ruff**（`E,F,I,UP,B`；`E501` 与实际代码冲突故关闭，`B008` 是 FastAPI `Depends()` 误报）。进入 dev 组、CI 增加一步、`scripts/ci.ps1` 同步。
+- **`apps/web/scripts/dead-exports-check.mjs`**：零依赖的死导出自查脚本，发现即退出码 1。已用它清掉 13 个死导出（含删除后级联暴露的 4 个）。
+
+### Fixed
+
+- **`ci.ps1` 在开发服务运行时必然失败**：`npm ci` 会先删 `node_modules`，而 `next start` 正持有 `node_modules/@next/swc-*.node`，`unlink` 报 EPERM，还会把**正在运行的前端一起弄坏**。脚本现在先检查 3000 / 8000 端口，被占用就退出并说明原因。
+- 73 处 ruff 问题：64 处自动修复（`datetime.UTC`、过时 typing 导入、导入顺序、未使用导入），9 处手工修复——其中 8 处是此前把 helper 插在 import 语句中间造成的 `E402`。
+- 一处测试用裸 `Exception` 断言，改为 `pydantic.ValidationError`。
+- 前端产物：删除 `DisabledButton`、`SoonTag`、`IconArrowRight`、`IconCheck`、`isAssistanceLevel`、`parsePlanPreview`、`readLastResult`、`clearLastResult`、`stateTone`、`reviewResultPath` 及随之孤立的类型与常量。
+
+### Verified
+
+- `ci.ps1` 十个步骤全绿（ruff → uv sync --locked → 迁移 → head 校验 → 130 单元 → 127 集成 → npm ci → tsc → lint → build），并在「服务在跑」时正确拒绝执行。
+- `next build` 无任何警告，17/17 页面生成；`tsc` / `eslint` 退出码 0；死导出 377 个中 0 个。
+- 干净数据库与开发库上后端两档测试均全绿。
+
 ## [0.1.6] — 2026-11-04
 
 工程化收尾：让「本地全绿」与「CI 全绿」成为同一件事。
