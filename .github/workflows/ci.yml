@@ -1,0 +1,112 @@
+name: CI
+
+# 只在两个 job 都绿时才算通过。工作流不引用任何 secret：
+# AI 与知识库相关能力在 CI 里保持关闭（默认即关闭），因此无需任何凭据。
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # 后端：真实 PostgreSQL 17 service + alembic upgrade head + Pytest 两档
+  # ---------------------------------------------------------------------------
+  api:
+    name: api (postgres + alembic + pytest)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/api
+
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: copilot
+          POSTGRES_PASSWORD: copilot_dev_password
+          POSTGRES_DB: copilot
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U copilot -d copilot"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      APP_ENV: ci
+      API_V1_PREFIX: /api/v1
+      DATABASE_URL: postgresql+asyncpg://copilot:copilot_dev_password@127.0.0.1:5432/copilot
+      CORS_ORIGINS: http://localhost:3000,http://127.0.0.1:3000
+      # 全部为空 / 默认关闭：CI 不需要也不会使用任何凭据
+      DEEPSEEK_API_KEY: ""
+      KNOWLEDGE_INGEST_ENABLED: "false"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup uv (Python 3.12)
+        uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.13.5"
+          python-version: "3.12"
+          enable-cache: true
+
+      - name: Install dependencies (locked)
+        run: uv sync --locked
+
+      - name: Apply migrations
+        run: uv run alembic upgrade head
+
+      - name: Migration is at head
+        run: uv run alembic current | grep -q '(head)'
+
+      - name: Pytest — 单元档（不依赖数据库）
+        run: uv run pytest -q
+
+      # 集成档已 hermetic：用例自建夹具（临时库、自插基线行），不依赖开发库里的历史数据。
+      # 本地在全新数据库上实测 85 passed（连跑 3 次一致），因此这里是**硬门禁**。
+      - name: Pytest — 集成档（hermetic，硬门禁）
+        run: uv run pytest -q -m integration
+
+  # ---------------------------------------------------------------------------
+  # 前端：npm ci + tsc + lint + build（无任何后端依赖，无 secret）
+  # ---------------------------------------------------------------------------
+  web:
+    name: web (npm ci + tsc + lint + build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/web
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+
+      - name: Install dependencies (locked)
+        run: npm ci --no-audit --no-fund
+
+      - name: TypeScript typecheck
+        run: npx tsc --noEmit
+
+      - name: ESLint
+        run: npm run lint
+
+      - name: Production build
+        run: npm run build

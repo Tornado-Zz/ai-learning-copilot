@@ -1,6 +1,6 @@
 # AI Learning Copilot 架构设计文档
 
-**文档版本**：v1.0（Sprint 0 基线）
+**文档版本**：v1.1（Sprint 1A 契约 v2 冻结）
 **适用范围**：本地开发形态 + 首版演进路线
 **上游文档**：PRD.md（做什么）、DATABASE.md（数据模型）、ROADMAP.md（何时做）、DESIGN_SYSTEM.md（怎么呈现）
 
@@ -28,7 +28,7 @@
         +----------------------------------+
         | web   Next.js 16 (dev server)    |
         |       React 19 + Tailwind CSS 4  |
-        |       监听 0.0.0.0:3000           |
+        |       监听 127.0.0.1:3000         |
         +----------------------------------+
                        |
                        | 浏览器直接 fetch  http://localhost:8000/api/v1/*
@@ -37,7 +37,7 @@
         +----------------------------------+
         | api   FastAPI + uvicorn          |
         |       Python 3.12 / Pydantic v2  |
-        |       监听 0.0.0.0:8000          |
+        |       监听 127.0.0.1:8000        |
         +----------------------------------+
                        |
                        | SQLAlchemy 2.x async + asyncpg
@@ -49,8 +49,10 @@
         +----------------------------------+
 
         未来：api --HTTPS--> DeepSeek API
-        本轮不发起任何 DeepSeek 调用（见第 5.8 节）
+        本轮不发起任何 DeepSeek 调用（见第 5.7 节）
 ```
+
+本机监听口径（唯一口径）：web 127.0.0.1:3000、api 127.0.0.1:8000、postgres 127.0.0.1:5432。本地无认证版本一律只监听回环地址，不对局域网或公网开放；浏览器侧 http://localhost:3000 与 http://127.0.0.1:3000 等价，二者都在 CORS 白名单内。
 
 说明：浏览器直接访问 api，不经 web 反向代理。这样本地排错简单，但也意味着 api 的 CORS 必须是白名单而不是通配符。
 
@@ -58,9 +60,11 @@
 
 | 服务 | 端口 | 绑定地址 | 谁访问 | 默认白名单 |
 |---|---|---|---|---|
-| web | 3000 | 本机 | 开发者浏览器 | 不适用 |
-| api | 8000 | 本机 | 浏览器 fetch、curl、测试 | 允许来源 http://localhost:3000 与 http://127.0.0.1:3000 |
-| postgres | 5432 | 仅 127.0.0.1 | api 进程 | 不对外 |
+| web | 3000 | 127.0.0.1:3000 | 开发者浏览器 | 不适用 |
+| api | 8000 | 127.0.0.1:8000 | 浏览器 fetch、curl、测试 | 允许来源 http://localhost:3000 与 http://127.0.0.1:3000 |
+| postgres | 5432 | 127.0.0.1:5432 | api 进程 | 不对外 |
+
+绑定地址是不可放宽的约束：三行都必须是回环地址，不允许改成对局域网开放的地址。web 由 apps/web/package.json 的 dev 与 start 脚本用 -H 127.0.0.1 固定，api 由 uvicorn 默认值固定，postgres 由 compose 端口映射固定。
 
 ### 1.4 启动方式（Windows PowerShell，逐行执行，不使用 && 串联）
 
@@ -177,31 +181,64 @@ apps/api/
 
 写入点：无。该流程是只读的，不产生任何数据行。
 
-### 3.2 流二：未来练习提交与判题（S4 实现，本轮不实现）
+### 3.2 流二：未来练习提交与判题（S3 实现，本轮不实现）
 
-关键约束：不执行用户代码，判定来源为 self_check、static_rule、manual。
+关键约束：不执行用户代码。判定的可信度由 verification_method 表达，它只说明"结论是怎么得来的"，不说明"代码是否真的跑通"：
+
+| judging_mode | 写入的 verification_method | 能证明什么 | 不能证明什么 |
+|---|---|---|---|
+| static_rule | 'static_rule' | 代码满足给定的静态约束与文本格式 | 不等于代码真实运行通过；verification_strength 只能是 'assessed' |
+| self_check | 'self_report' | 用户自认的结论 | 系统无法验证代码是否真的运行 |
+| manual | 'none' | 只记录未判定状态 | 不产生任何通过结论 |
+| （未来）runtime_test / manual_review | 同名取值 | 真实执行或人工复核通过 | Sprint 1–3 不可达，不得写入 |
+
+用户粘贴的 run_output_text 只是文本，不构成"代码确实运行过"的证明。未实际执行的代码不得宣称"通过真实自动测试"；界面禁止出现"已通过自动测试""实时运行结果"等表述，统一用"静态规则检查通过"与"自检记录"。
 
 ```text
 浏览器 (practice 页)
   1. GET /api/v1/exercises/{id}
      返回题目、起始代码、可见自检用例（隐藏用例不下发）
-  2. 用户在本地运行代码，把运行输出粘贴回页面
+  2. 用户在本地运行代码，把运行输出粘贴回页面（run_output_text，可为空）
   3. POST /api/v1/submissions
-     body: { exercise_id, code_text, run_output_text, used_ai, ai_assistance_level }
-     api 校验：code_text <= 20000 字符、run_output_text 非空、exercise 存在
+     body: { exercise_id, code_text, run_output_text, self_reported_level }
+     api 校验：code_text <= 20000 字符、exercise 存在、self_reported_level 取自 ai_assistance_level 同一枚举
   4. 判题（不执行代码）：
-       a. static_rule：检查必须出现与禁止出现的语法结构；输出与期望值比对
-       b. self_check：展示自检用例与实际输出的差异，由用户确认是否通过
-       c. manual：无人值守判定，标记待人工或后续复盘
-  5. 写库（单事务）：
-       submissions 一行（含用于本行的 judging_mode 快照与 passed_with_ai）
+       a. static_rule：检查必须出现与禁止出现的语法结构；输出与期望值比对 -> verification_method='static_rule'
+       b. self_check：展示自检用例与实际输出的差异，由用户确认是否通过 -> verification_method='self_report'
+       c. manual：无人值守判定，标记待人工或后续复盘 -> verification_method='none'
+  5. 写库（单事务），submissions 只有三列可写：
+       is_passed            boolean NULL：可判定通过 -> true；判定失败或用户确认未通过 -> false；无法判定 -> NULL
+       verification_method  varchar(16) NOT NULL default 'none'，取值 'static_rule' / 'self_report' / 'none'
+                            'runtime_test' 与 'manual_review' 保留给真实执行与人工复核：Sprint 1–3 一律不写入
+       ai_assistance_level  = max(用户自报等级, 本次关联 ai_interactions 的 dependency_level)，
+                            按 none < hint < partial_code < full_answer 取最大，默认 'none'
+       其余列不直接写：verification_strength 是生成列，由 verification_method 唯一决定；
+       used_ai 与 passed_with_ai 是生成列，由 ai_assistance_level 与 is_passed 决定；
+       has_prompt_dependency 不落库，改为查询派生（EXISTS ai_interactions）
        未通过 -> mistakes 一行 + review_tasks 一行（scheduled_for = now + 1 天）
-  6. 返回判定结果与是否借助 AI 通过
+  6. 返回判定结果、verification_method、verification_strength 与是否借助 AI 通过
 ```
 
-写入点：submissions、mistakes、review_tasks。三者在同一事务内写入，任一失败整体回滚。
+写入点：submissions、mistakes、review_tasks。
 
-### 3.3 流三：未来 AI 导师对话（S2 实现，本轮不实现、不调用 DeepSeek）
+生成列定义（与 DATABASE.md 逐字一致）：
+
+```sql
+verification_strength GENERATED ALWAYS AS (CASE WHEN verification_method IN ('runtime_test','manual_review') THEN 'verified'
+                                                WHEN verification_method = 'static_rule' THEN 'assessed'
+                                                WHEN verification_method = 'self_report' THEN 'self_reported'
+                                                ELSE 'none' END) STORED
+used_ai        GENERATED ALWAYS AS (ai_assistance_level <> 'none') STORED
+passed_with_ai GENERATED ALWAYS AS (is_passed IS TRUE AND ai_assistance_level <> 'none') STORED
+```
+
+两条硬约束：不可能出现"ai_assistance_level<>'none' 且 is_passed=true 且 passed_with_ai=false"的记录，该条件由生成列表达式本身保证；verification_strength='none' 的记录不得计为"已验证通过"，也不得计入任何掌握度或 L3 证据。三者在同一事务内写入，任一失败整体回滚。
+
+static_rule 不等于真实验证：static_rule 只能产出 verification_strength='assessed'，不得授予 L3/L4。L3 保留条件为 tier 3 证据（runtime_test 或 manual_review）且 ≥3 次不同题目且 ai_assistance_level='none'；L4 需在满足 L3 基础上 ≥1 次 transfer，状态一律 pending_review。MVP 上限：Sprint 1–3 期间任何域都不得自动出现 L3 或 L4，L3/L4 只能以 requested_verification（用户申请）存在。
+
+### 3.3 流三：未来 AI 导师对话（S4 实现，本轮不实现、不调用 DeepSeek）
+
+统一枚举：ai_interactions.dependency_level 与 submissions.ai_assistance_level 使用同一枚举、同一排序 none < hint < partial_code < full_answer，两列均 NOT NULL。
 
 ```text
 浏览器 (practice 或 learn 页)
@@ -216,17 +253,107 @@ apps/api/
        event: error  -> { error_code, message }
   5. 结束（成功或失败）回写 ai_interactions：status、prompt_tokens、completion_tokens、
      latency_ms、response_text（脱敏后）、error_code
-  6. 用户提交练习时：把相关 interaction 关联 submission_id，
-     并按 dependency_level 计算 submissions.used_ai / passed_with_ai
+  6. 用户提交练习时：把本次关联的 interaction 回填 submission_id，并按
+     submissions.ai_assistance_level = max(用户自报等级, 这些 interaction 的 dependency_level) 写入；
+     used_ai 与 passed_with_ai 不直接写，它们是生成列，由 ai_assistance_level 与 is_passed 决定
 ```
 
-写入点：ai_interactions（创建与收尾各一次）、submissions（提交时回填提示依赖字段）。
+写入点：ai_interactions（创建与收尾各一次）、submissions（提交时回填 ai_assistance_level；submissions 仅三列可写，其余为生成列或查询派生）。
+
+练习提交与提示依赖的六种情况唯一取值表 v2（7 行，与 PRD.md、DATABASE.md、ROADMAP.md、CONTRACT 逐字一致；3.2 判题与 L3 证据判定共用此表）：
+
+| # | 情况 | is_passed | verification_method | verification_strength（生成列） | ai_assistance_level | used_ai（生成列） | passed_with_ai（生成列） | 可作 L3 证据 |
+|---|---|---|---|---|---|---|---|---|
+| 1 | 完全独立通过（静态规则） | true | static_rule | assessed | 'none' | false | false | 否 |
+| 2 | 使用 hint 后通过 | true | static_rule | assessed | 'hint' | true | true | 否 |
+| 3 | 使用 partial_code 后通过 | true | static_rule | assessed | 'partial_code' | true | true | 否 |
+| 4 | 使用 full_answer 后通过 | true | static_rule | assessed | 'full_answer' | true | true | 否 |
+| 5 | 练习未通过 | false | static_rule 或 self_report | assessed 或 self_reported | 任意 | 按等级 | false | 否 |
+| 6 | 无法验证的自检结果 | NULL | none | none | 任意 | 按等级 | false | 否 |
+| 7 | 真实执行通过（未来） | true | runtime_test 或 manual_review | verified | 任意 | 按等级 | 视等级 | 是（且需 none） |
+
+表的读法：只有 is_passed IS TRUE 且 ai_assistance_level='none' 且 verification_strength='verified' 的提交才可作为 L3 证据；第 6 行任何时候都不计入掌握度，也不计入任何通过率。
 
 ### 3.4 流四：未来复习任务生成（S5 实现）
 
 触发：练习判题未通过，或用户手动加入错题。
 处理：写 mistakes 一行（error_type、note_md），按 1/3/7/14/30 天规则生成 review_tasks 一行。
 写入点：mistakes、review_tasks。规则细节见 DATABASE.md 第 4.11 与 4.12 节。
+
+### 3.5 当前能力等级解析（唯一口径）
+
+为什么不能只取最新一条：证据有强弱。某域已有诊断建立的 L2（tier 1），再来一条自评（tier 0），若按"取最新一行"展示，等级会被更弱的证据覆盖。解析必须先按证据层级分层，同层内再取最新。
+
+| tier | 判定条件 | 典型来源 |
+|---|---|---|
+| 3 | verification_method IN ('runtime_test','manual_review') | 真实执行通过 / 人工复核（Sprint 1 不可达） |
+| 2 | evidence_kind IN ('practice','transfer') AND verification_method='static_rule' | 静态规则练习通过 |
+| 1 | evidence_kind='diagnostic' | 20 题诊断达到阈值 |
+| 0 | evidence_kind='self_assessment' | 用户自评（不产生等级） |
+
+规则：只取 assessment_state='established' 的行，按 (tier DESC, created_at DESC, id DESC) 每域取第一条；requested_verification 永不参与、永不作为展示等级；同层可升可降（同 tier 内取最新），弱层永不覆盖强层。
+
+```sql
+SELECT DISTINCT ON (skill_id) skill_id, level, evidence_kind, evidence_strength, verification_method, created_at
+  FROM (SELECT ul.*, CASE WHEN verification_method IN ('runtime_test','manual_review') THEN 3
+                          WHEN evidence_kind IN ('practice','transfer') AND verification_method='static_rule' THEN 2
+                          WHEN evidence_kind='diagnostic' THEN 1 ELSE 0 END AS tier
+          FROM user_skill_levels ul
+         WHERE user_id = :user_id AND assessment_state='established') t
+ ORDER BY skill_id, tier DESC, created_at DESC, id DESC;
+```
+
+回退：某域无 established 行时展示 level=0，state 取该域最新一条非 established 行；完全无记录为 unassessed。L0 两义必须分开显示：unassessed 为"尚未评估"，assessed_below_threshold 为"已测，未达 L1 门槛"，两者都不得显示为"能力弱"；evidence_strength='none' 只允许出现在 level=0 的行上。
+
+关键三行（完整七行见 PRD.md 与 CONTRACT，逐字一致）：
+
+| # | 事件序列 | 当前展示 | 依据 |
+|---|---|---|---|
+| 3 | 先诊断 70%，后又诊断 90% | level 2 | tier 1 内取最新（同层可升） |
+| 5 | 已有诊断 L2（tier 1），一次 static_rule 练习通过 | level 2，evidence_kind=practice | tier 2 > tier 1，弱层不覆盖强层 |
+| 6 | 用户自评 L4 | 展示等级不变；新增 1 行 level=0、state=requested_verification | self_assessment 不产生等级 |
+
+读法：第 4 行（再抢先做诊断 55%）展示列写 level 2 不变、依据列给出实际 level 1——本轮按"同层取最新"，实际展示 level 1；若要同层不降级，需在 S2 前另行决策。
+
+### 3.6 流五：诊断提交（S1A 实现）
+
+```text
+浏览器 (diagnostics 页)
+  1. GET /api/v1/skills 取 6 个技能域；用户答完 20 题
+  2. POST /api/v1/diagnostics  body:{question_set_version:'v1', rule_version:'r1', answers:{...}}
+  3. 服务端按 rule_version 判分，得 6 域 correct/total/rate
+  4. 单事务写：a) diagnostic_attempts 一行（answers、domain_scores 全量快照；同一份答案重复提交追加新行，不覆盖旧行）
+               b) user_skill_levels 六行：evidence_kind='diagnostic'、verification_method='static_rule'、evidence_ref='diag:<attempt_id>'；
+                  达阈值 -> level 1/2 且 state='established'；未达阈值 -> level=0 且 state='assessed_below_threshold'
+     任一语句失败整体回滚：不留半份诊断，也不留孤立 attempt
+  5. 201 {attempt_id, rule_version, domains:[{skill_code,correct,total,rate,level,state}]}
+```
+
+写入点：diagnostic_attempts、user_skill_levels。answers = `{"q01":{"choice":"B"},"q02":{"choice":"A"}}`；domain_scores = `{"route_a.a1":{"correct":3,"total":4,"rate":0.75,"level":1,"state":"established"}}`。
+
+诊断得分只证明客观题答对，不等于代码能力经过验证：evidence_strength 只能是 'assessed'，不得写 'verified'；练习来源的证据引用写 `sub:<submission_id>`。
+
+### 3.7 流六：周计划重生成（S2 实现，S1A 只冻结契约）
+
+Sprint 1 不创建 study_plan_items、不写入任何计划行；"计划预览"是内存计算、不落库（见 4.3 节 GET /api/v1/study-plan/preview），不得产生带 target_id 的行。
+
+```text
+浏览器 (计划页) -> POST /api/v1/study-plan/regenerate
+  单事务内顺序执行：
+   1. SELECT ... FROM study_plan_items WHERE user_id=:u AND week_start=:w FOR UPDATE
+   2. 按档案与六域当前等级计算目标集合，每项带 dedupe_key
+   3. INSERT ... ON CONFLICT (user_id, week_start, dedupe_key) DO UPDATE（只更新可重算列）
+   4. 不删除 status IN ('done','skipped') 的行；不改写这两类的 status 与 updated_at
+  任一失败整体回滚
+```
+
+| # | 不变量 | 判定方式 |
+|---|---|---|
+| 1 | 同一输入重生成，(user_id, week_start) 维度 count(*) 前后不变 | 重生成前后各 count 一次，必须相等 |
+| 2 | done 行的 status 与 updated_at 不被改写 | 重生成前后比对 |
+| 3 | skipped 行的 status 与 updated_at 不被改写 | 重生成前后比对 |
+
+三个验收用例：① 同输入重生成行数不变；② 完成 1 项后重生成该项保持 done；③ 跳过 1 项后重生成该项保持 skipped。
 
 ## 4. 接口约定
 
@@ -260,6 +387,40 @@ apps/api/
 - 分页默认 limit=20，上限 100，超限返回 422。
 - 请求与响应字段一律 snake_case；时间一律 ISO 8601 UTC 带 Z。
 - 未实现的能力不注册路由：宁可 404，也不返回占位数据。
+
+### 4.3 Sprint 1 示例契约（S1A 冻结，与 CONTRACT 逐字一致）
+
+| 方法 | 路径 | 成功 | 失败 |
+|---|---|---|---|
+| GET | /api/v1/users/me | 200 | 500 INTERNAL_ERROR |
+| PUT | /api/v1/users/me/profile | 200（响应同上） | 422 VALIDATION_ERROR |
+| POST | /api/v1/diagnostics | 201 | 422 VALIDATION_ERROR |
+| GET | /api/v1/skills | 200 | — |
+| GET | /api/v1/study-plan/preview | 200 | 409 CONFLICT（timezone_source='default' 未确认） |
+
+`GET /api/v1/users/me` -> 200
+
+```json
+{"user":{"id":1,"display_name":"学习者","timezone":"Asia/Shanghai","timezone_source":"user_confirmed"},
+ "profile":{"study_days":[1,3,5],"daily_minutes":60,"weekly_minutes":180},
+ "skills":[{"code":"route_a.a1","name_zh":"Python 基础","level":1,"state":"established",
+            "evidence_kind":"diagnostic","evidence_strength":"assessed"}]}
+```
+
+`PUT /api/v1/users/me/profile` body `{"study_days":[1,3,5],"daily_minutes":60,"timezone":"Asia/Shanghai","timezone_confirmed":true}` -> 200（结构同上）；校验失败 422；study_days 允许 1–7 天且元素不重复（去重由触发器 trg_user_profiles_study_days_unique 与服务层双重校验），daily_minutes 15–480；timezone_confirmed=true 时写 timezone_source='user_confirmed'，false 或缺省时保持 'default' 且不得清除已确认状态。
+
+`POST /api/v1/diagnostics` body `{"question_set_version":"v1","rule_version":"r1","answers":{"q01":{"choice":"B"}}}` -> 201；同一份答案重复提交仍返回 201，且 attempt_id 为新值。
+
+```json
+{"attempt_id":12,"rule_version":"r1",
+ "domains":[{"skill_code":"route_a.a1","correct":3,"total":4,"rate":0.75,"level":1,"state":"established"}]}
+```
+
+`GET /api/v1/skills` -> 200 `{"skills":[{"code":"route_a.a1","name_zh":"Python 基础","level":"domain","order_index":1}]}`（固定 6 行，只返回 domain 级技能，不含 topic）
+
+`GET /api/v1/study-plan/preview` -> 200 `{"computed":true,"persisted":false,"days":[{"date":"2025-01-06","minutes":60},{"date":"2025-01-08","minutes":60}],"note":"Sprint 2 才落库"}`（内存计算，响应不得含 target_id、plan_id）
+
+统一错误体（所有业务接口，见 6.1 节）：`{"error":{"code":"VALIDATION_ERROR","message":"study_days 不允许重复元素","details":{"field":"study_days","value":[1,1]}},"request_id":"0f3c1a2b9d8e"}`
 
 ## 5. DeepSeek API 调用流程
 
@@ -320,9 +481,9 @@ apps/api/
 |---|---|---|---|
 | 1 | ai_interactions 创建 | 调用 DeepSeek 之前 | status='pending'、dependency_level=用户所选等级、context 类型与 id |
 | 2 | ai_interactions 收尾 | 流结束、失败或被取消 | status、tokens、latency_ms、脱敏后的 prompt 与 response、error_code |
-| 3 | submissions 回填 | 练习提交时 | used_ai、ai_assistance_level、has_prompt_dependency、passed_with_ai |
+| 3 | submissions 回填 | 练习提交时 | 仅三列可写：is_passed、verification_method、ai_assistance_level（= max(用户自报等级, 本次关联 interaction 的 dependency_level)）；verification_strength、used_ai 与 passed_with_ai 均为生成列，不写；has_prompt_dependency 不落库，按查询派生（EXISTS ai_interactions） |
 
-一致性规则：submissions.passed_with_ai 为真，当且仅当 is_passed 为真且 used_ai 为真；dependency_level='full_answer' 的调用必须使该次提交的 passed_with_ai 为真。若两者不一致，以 ai_interactions 为事实源，修复写入逻辑而不修改历史数据。
+一致性规则：submissions.passed_with_ai 由生成列表达式唯一决定（is_passed IS TRUE 且 ai_assistance_level <> 'none'），因此不可能出现"ai_assistance_level<>'none' 且 is_passed=true 且 passed_with_ai=false"的提交；used_ai 同理由 ai_assistance_level 决定，不接受直接赋值。若历史数据出现不一致，以 ai_interactions 为事实源，修复写入逻辑而不修改历史数据。
 
 ### 5.7 本轮不调用
 
@@ -339,14 +500,14 @@ apps/api/
   "error": {
     "code": "AI_TIMEOUT",
     "message": "AI 导师响应超时，请稍后重试",
-    "request_id": "0f3c1a2b9d8e",
     "details": { "retry_after_ms": 1500 }
-  }
+  },
+  "request_id": "0f3c1a2b9d8e"
 }
 ```
 
 - message 面向用户，中文，不含堆栈与内部路径。
-- request_id 与日志中的 request_id 一致，便于把用户反馈对到日志。
+- request_id 在响应体顶层，与日志中的 request_id 一致，便于把用户反馈对到日志。
 - details 可选，只在有结构化补充信息时出现。
 - 兼容说明：S0 已实现的 `/api/v1/ready` 在数据库不可用时返回的是 readiness 结构（status 与 checks），不属于错误响应体。S1 引入统一错误体时，不为 ready 增加 error 包裹，保持该接口现状；只有新的业务接口使用统一错误体。
 
@@ -405,9 +566,16 @@ apps/api/
 3. 输入校验前置：所有入参经 Pydantic v2 校验，并设置长度上限（提示 4000 字符、代码 20000 字符、标题 200 字符），超限返回 422。
 4. SQL 注入防护：只使用 SQLAlchemy 表达式与参数绑定；禁止字符串拼接 SQL；禁止把用户输入作为表名或列名。
 5. 日志脱敏：见第 6.4 节；任何密钥形态字符串出现即视为缺陷。
-6. 数据库不暴露：compose 中端口映射固定为 127.0.0.1:5432；不允许改成 0.0.0.0。
+6. 数据库不暴露：compose 中端口映射固定为 127.0.0.1:5432；不允许改成对局域网开放的地址。
 7. 不把 Docker 容器当安全沙箱：容器不是隔离执行环境，因此本产品在首版不执行用户代码；即使将来引入执行能力，必须使用专用隔离方案（独立容器加资源限额、只读文件系统、无网络），而不是复用 api 容器。
 8. 依赖可信：不引入来源不明的包；锁文件入库；不在运行时执行动态下载的脚本。
+9. 本地只监听回环：web 127.0.0.1:3000、api 127.0.0.1:8000、postgres 127.0.0.1:5432。本地无认证版本一律只监听回环地址，不对局域网或公网开放；任一处被绑到非回环地址按缺陷处理，修复方式是脚本显式加绑定参数（apps/web 的 dev/start 已用 -H 127.0.0.1）。
+10. 不宣称未验证的通过：未实际执行的代码不得宣称"通过真实自动测试"；界面统一用"静态规则检查通过"与"自检记录"，禁止出现"已通过自动测试""实时运行结果"等表述。
+11. 自检不作强证据：verification_method='self_report' 产出 verification_strength='self_reported'，不是 L3/L4 的充分证据；只有 'verified'（runtime_test 或 manual_review 产出）计入 L3；'none' 不计入任何掌握度、通过率或 L3 证据。
+12. 安全代码执行方案评估（必须完成的前置任务，本轮不做实现）：至少比较四种方案——自建隔离容器 + 资源/网络限额、gVisor 或 Firecracker 微虚机、第三方判题 API、WASM 沙箱（如 Pyodide）——并产出独立评估文档，验收含隔离强度、资源限额能力、成本、运维复杂度、与现有 static_rule 的兼容路径。本轮不安装、不实现任何沙箱。
+13. 时区只用 users.timezone：所有"今天/本周"计算以该列换算，禁止使用服务器时区、进程时区或浏览器时区做落库判定。
+14. 时区必须显式确认：timezone_source='default' 时前端必须在档案页要求用户显式确认，确认前不得展示"今日/本周"相关推导；确认后写 'user_confirmed'。
+15. 非学习日不分配计划项：study_days 之外的日子不生成任何计划项（S2 的 R2 引用本条）。
 
 ## 8. 后续扩展策略
 
@@ -450,11 +618,12 @@ apps/api/
 | GET /api/v1/ready | 已实现 | 200 与 503 两条路径，含 latency_ms 与 detail |
 | CORS 白名单 | 已实现 | 默认两个 localhost 来源 |
 | Alembic 骨架 + 空基线迁移 | 已实现 | 尚未创建任何业务表 |
-| 业务表（13 张） | 未实现 | DATABASE.md 是设计文档，不是已建表说明 |
+| 业务表 | 未实现 | Sprint 1A 迁移 0002_sprint1a_identity_diagnostics 只建 users、user_profiles、skills、diagnostic_attempts、user_skill_levels 五张表并写入 6 行 skills 种子；study_plan_items 为 S2 建表。DATABASE.md 是设计文档，不是已建表说明 |
 | 五个页面 | S0 范围：路由骨架与布局 | 页面功能按模块 1–8 在 S1–S6 补齐；未实现入口标注开发中 |
 | AI 导师调用链 | 未实现 | 本轮明确不调用 DeepSeek |
 | 认证与多用户 | 未实现且非目标 | 单用户本地形态 |
 | 对外部署 | 未实现且非目标 | 只在本地开发环境运行 |
+| 监听地址 | 本轮已修复 | 修复前 next start 默认绑定全部网卡（局域网可达）；已在 apps/web/package.json 的 dev 与 start 脚本加 -H 127.0.0.1，实测只绑定 127.0.0.1:3000 |
 
 本表区分"S0 承诺范围"与"S1 起补齐的功能"，不声明任何运行时验证结论；实现证据以仓库与本地命令输出为准。
 
@@ -462,4 +631,4 @@ apps/api/
 
 - 待确认：infra/docker-compose.yml 是否把 web 与 api 也容器化。当前文档约定 compose 至少提供 postgres，web 与 api 在宿主机运行；若改为容器化，需要在本文件第 1.2 与 1.3 节同步端口与拓扑。
 - 待确认：统一错误响应体在 S1 落地时，是否需要为历史接口保留 detail 兼容字段。默认不为 ready 加 error 包裹（见第 6.1 节）。
-- 待确认：DeepSeek 模型的默认值与复杂任务模型是否与实际可用型号一致，需在 S2 接入前用真实密钥验证一次，并把结论写回本文件第 5.1 节与 PRD.md 第 5.5 节。
+- 待确认：DeepSeek 模型的默认值与复杂任务模型是否与实际可用型号一致，需在 S4 接入前用真实密钥验证一次，并把结论写回本文件第 5.1 节与 PRD.md 第 5.5 节。
