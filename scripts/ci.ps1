@@ -35,6 +35,22 @@ Push-Location $root
 Step 'docs consistency' { node scripts/docs-consistency-check.mjs | Out-Null }
 Pop-Location
 
+Write-Host '=== security ===' -ForegroundColor Cyan
+Push-Location (Join-Path $root 'apps/web')
+# Exit code 2 means the audit is unavailable (offline). That is not a failure, but it
+# must be reported: a silently skipped security check is worse than a noisy one.
+node scripts/audit-check.mjs
+$auditExit = $LASTEXITCODE
+Pop-Location
+if ($auditExit -eq 0) {
+  Write-Host '    ok: audit baseline' -ForegroundColor Green
+} elseif ($auditExit -eq 2) {
+  Write-Host '    skipped: audit unavailable (offline?)' -ForegroundColor Yellow
+} else {
+  Write-Host '    FAILED: audit baseline' -ForegroundColor Red
+  $failures += 'audit baseline'
+}
+
 Write-Host '=== job: api ===' -ForegroundColor Cyan
 Push-Location (Join-Path $root 'apps/api')
 Step 'uv sync --locked' { uv sync --locked | Out-Null }

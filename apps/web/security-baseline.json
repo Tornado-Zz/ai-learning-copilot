@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "updatedAt": "2026-11-04",
+  "dev": {
+    "total": 16,
+    "bySeverity": { "critical": 0, "high": 0, "moderate": 16, "low": 0 },
+    "scope": "全部来自 ESLint 开发链：minimatch 经 eslint-config-next 及其插件传递引入。不进产物、不接收用户输入。",
+    "note": "npm audit fix（非 --force）无法消除；--force 会升到 eslint-config-next 不接受的版本并破坏 lint。等上游修复。",
+    "reviewedBy": "手动复核 16 个包的 via 链，均不含 next / react / react-dom"
+  },
+  "runtime": {
+    "total": 0,
+    "note": "生产依赖只有 next / react / react-dom；npm audit --omit=dev 为 0，这是硬门禁。"
+  }
+}

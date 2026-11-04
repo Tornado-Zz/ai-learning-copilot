@@ -45,6 +45,10 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\ci.ps1      # 本�
 
 cd apps\web
 node scripts/dead-exports-check.mjs   # 死导出自查（0 = 干净；发现即退出码 1）
+node scripts/audit-check.mjs          # 依赖基线（运行时必须 0；离线时退出码 2 并明说未检查）
+
+cd ..\..
+node scripts/docs-consistency-check.mjs   # 文档里的端点/表/迁移声明与源码是否一致
 ```
 
 - 第一条：起 PostgreSQL → 等 healthy → `alembic upgrade head` → 起 API（`127.0.0.1:8000`）→ 构建并起 Web（`127.0.0.1:3000`）。**它会自动补齐 2.1 的 `.env`**（缺哪个就从对应 `.env.example` 复制），并在首次运行时执行 `npm ci` 与 `npm run build`——所以新克隆只需这一条命令，等到 API 与 Web 都能应答即可。
