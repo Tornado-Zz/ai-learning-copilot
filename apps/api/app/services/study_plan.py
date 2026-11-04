@@ -44,7 +44,8 @@ from sqlalchemy import ARRAY, BigInteger, String, bindparam, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import CONFLICT, NOT_FOUND, PLAN_ITEM_LOCKED, ApiError, validation_error
-from app.services import catalog, lessons as lessons_service, levels, users
+from app.services import catalog, levels, users
+from app.services import lessons as lessons_service
 
 PREVIEW_NOTE = "Sprint 2 才落库"
 

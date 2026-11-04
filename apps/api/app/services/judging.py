@@ -22,8 +22,9 @@ B1 证据口径（唯一，不得改写）：
 from __future__ import annotations
 
 import re
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from typing import Any, Mapping, Sequence
+from typing import Any
 
 JUDGING_MODE_STATIC_RULE = "static_rule"
 JUDGING_MODE_SELF_CHECK = "self_check"

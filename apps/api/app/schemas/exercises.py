@@ -12,7 +12,7 @@ B1/B2 are reflected in the shapes themselves:
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from pydantic import BaseModel, Field, field_serializer
 
@@ -24,7 +24,7 @@ RECENT_LIMIT_MAX = 50
 
 
 def _iso_z(value: datetime) -> str:
-    return value.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+    return value.astimezone(UTC).isoformat().replace("+00:00", "Z")
 
 
 class ExerciseVisibleTestOut(BaseModel):

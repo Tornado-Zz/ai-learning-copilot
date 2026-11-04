@@ -19,6 +19,7 @@ function Step($name, [scriptblock]$run) {
 Write-Host '=== job: api ===' -ForegroundColor Cyan
 Push-Location (Join-Path $root 'apps/api')
 Step 'uv sync --locked' { uv sync --locked | Out-Null }
+Step 'ruff check' { uv run ruff check app tests }
 Step 'alembic upgrade head' { uv run alembic upgrade head | Out-Null }
 Step 'alembic current reports head' {
   $out = uv run alembic current 2>&1 | Out-String

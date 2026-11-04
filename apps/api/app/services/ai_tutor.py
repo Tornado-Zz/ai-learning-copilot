@@ -30,9 +30,29 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Any, Sequence
+from collections.abc import Sequence
+from typing import Any
 
-from app.schemas.ai import KnowledgeCitation
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.config import get_settings
+from app.core.errors import (
+    AI_QUOTA_EXCEEDED,
+    AI_TIMEOUT,
+    AI_UNAVAILABLE,
+    NOT_FOUND,
+    ApiError,
+    ai_quota_exceeded,
+    ai_timeout,
+    ai_unavailable,
+    ai_upstream_error,
+)
+from app.schemas.ai import ANSWER_PREVIEW_LENGTH, TutorRequest
+from app.services.ai_client import AiCompletion, AiUpstreamError, AiUpstreamTimeout, DeepSeekClient
+from app.services.knowledge import pipeline as knowledge
+
+logger = logging.getLogger("app.services.ai_tutor")
 
 
 def _citation_url(item: Any) -> str:
@@ -57,27 +77,6 @@ def _dedupe_citations(items: Sequence[Any]) -> list[Any]:
             seen.add(url)
         out.append(item)
     return out
-
-from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from app.core.config import get_settings
-from app.core.errors import (
-    AI_QUOTA_EXCEEDED,
-    AI_TIMEOUT,
-    AI_UNAVAILABLE,
-    NOT_FOUND,
-    ApiError,
-    ai_quota_exceeded,
-    ai_timeout,
-    ai_unavailable,
-    ai_upstream_error,
-)
-from app.schemas.ai import ANSWER_PREVIEW_LENGTH, TutorRequest
-from app.services.ai_client import AiCompletion, AiUpstreamError, AiUpstreamTimeout, DeepSeekClient
-from app.services.knowledge import pipeline as knowledge
-
-logger = logging.getLogger("app.services.ai_tutor")
 
 # The quota window is one UTC day: created_at is stored as timestamptz, so the sum
 # is taken from the UTC midnight boundary of the current day.

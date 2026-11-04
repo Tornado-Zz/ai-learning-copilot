@@ -36,9 +36,10 @@ import html as html_module
 import json
 import logging
 import re
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
-from datetime import datetime, timezone
-from typing import Any, Iterable, Protocol, Sequence
+from datetime import UTC, datetime
+from typing import Any, Protocol
 from urllib.parse import urlsplit
 
 import httpx
@@ -407,15 +408,15 @@ SELECT_LESSON_BY_CODE = text(
 
 
 def utcnow() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def _as_utc(value: datetime | None) -> datetime:
     if value is None:
         return utcnow()
     if value.tzinfo is None:
-        return value.replace(tzinfo=timezone.utc)
-    return value.astimezone(timezone.utc)
+        return value.replace(tzinfo=UTC)
+    return value.astimezone(UTC)
 
 
 # ---------------------------------------------------------------------------

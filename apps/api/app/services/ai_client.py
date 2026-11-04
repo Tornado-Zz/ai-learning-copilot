@@ -24,8 +24,9 @@ here, so it cannot be sent (Sprint 4 security boundary).
 from __future__ import annotations
 
 import time
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
-from typing import Any, Mapping, Protocol, Sequence
+from typing import Any, Protocol
 
 import httpx
 

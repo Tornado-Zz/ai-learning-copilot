@@ -22,7 +22,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import sys
-from typing import Sequence
+from collections.abc import Sequence
 
 from app.core.config import get_settings
 from app.core.db import dispose_engine, get_session_factory

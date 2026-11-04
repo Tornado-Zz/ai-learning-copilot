@@ -18,15 +18,15 @@ from app.schemas.study_plan import (
     StudyPlanPreviewResponse,
     StudyPlanResponse,
 )
+from app.services import study_plan as study_plan_service
 from app.services import users as users_service
+
+router = APIRouter(tags=["study-plan"])
 
 
 async def _current_user_id(session: AsyncSession) -> int:
     """单用户语义：计划生成需要显式 user_id，路由在这里解析一次。"""
     return int((await users_service.get_single_user(session))["id"])
-from app.services import study_plan as study_plan_service
-
-router = APIRouter(tags=["study-plan"])
 
 TIMEZONE_NOT_CONFIRMED = {409: {"description": "时区未确认，不得展示或生成今日/本周推导"}}
 

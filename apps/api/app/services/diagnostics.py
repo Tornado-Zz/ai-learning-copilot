@@ -18,8 +18,8 @@ from app.services.question_set import (
     DOMAIN_CODES,
     QUESTION_INDEX,
     QUESTION_SET_VERSION,
-    RULE_VERSION,
     QUESTIONS_V1,
+    RULE_VERSION,
     DomainScore,
     score_answers,
 )

@@ -15,7 +15,7 @@ is additive, never a condition for answering.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Literal
 
 from pydantic import BaseModel, Field, field_serializer, field_validator
@@ -36,7 +36,7 @@ INTERACTIONS_LIMIT_MAX = 50
 
 
 def _iso_z(value: datetime) -> str:
-    return value.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+    return value.astimezone(UTC).isoformat().replace("+00:00", "Z")
 
 
 class AiContextIn(BaseModel):

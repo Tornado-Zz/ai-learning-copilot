@@ -19,7 +19,7 @@ repo_url <= 300 且为空或 http(s) 链接）在请求模型里表达，超限�
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any, Literal
 from urllib.parse import urlsplit
 
@@ -44,7 +44,7 @@ REVIEWER_SELF = "self"
 
 
 def _iso_z(value: datetime) -> str:
-    return value.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+    return value.astimezone(UTC).isoformat().replace("+00:00", "Z")
 
 
 def _http_url_or_none(value: str | None) -> str | None:
@@ -84,7 +84,7 @@ class CapstoneSubmissionUpdateRequest(BaseModel):
     _check_repo_url = field_validator("repo_url")(_http_url_or_none)
 
     @model_validator(mode="after")
-    def _reject_null_for_not_null_columns(self) -> "CapstoneSubmissionUpdateRequest":
+    def _reject_null_for_not_null_columns(self) -> CapstoneSubmissionUpdateRequest:
         """显式 null 只对 repo_url 有意义（清空链接）；其余列 NOT NULL，422 而不是 500。"""
         for name in ("title", "summary", "run_instructions", "self_checks"):
             if name in self.model_fields_set and getattr(self, name) is None:

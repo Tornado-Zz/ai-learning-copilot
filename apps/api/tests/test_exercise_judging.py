@@ -15,6 +15,7 @@ import ast
 from pathlib import Path
 
 import pytest
+from pydantic import ValidationError
 
 from app.schemas.exercises import (
     ExerciseDetailOut,
@@ -196,5 +197,6 @@ def test_judged_response_model_is_exactly_the_frozen_seven_keys() -> None:
 def test_submission_request_defaults_to_self_check_absent() -> None:
     payload = SubmissionCreateRequest(code_text="print(1)")
     assert payload.claimed_output is None and payload.self_reported_passed is None
-    with pytest.raises(Exception):
+    # 只断言 pydantic 的校验错误类型，不用裸 Exception 吞掉一切（B017）。
+    with pytest.raises(ValidationError):
         SubmissionCreateRequest()  # code_text 是必填

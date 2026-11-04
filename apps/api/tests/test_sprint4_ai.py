@@ -24,9 +24,10 @@ import json
 import logging
 import subprocess
 import sys
+from collections.abc import AsyncIterator, Iterator
 from contextlib import asynccontextmanager, contextmanager
 from pathlib import Path
-from typing import Any, AsyncIterator, Iterator
+from typing import Any
 
 import httpx
 import pytest

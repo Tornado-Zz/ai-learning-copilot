@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, status
 from fastapi.responses import JSONResponse
@@ -48,7 +48,7 @@ async def health() -> HealthResponse:
         service=SERVICE_NAME,
         version=__version__,
         environment=settings.app_env,
-        timestamp=datetime.now(timezone.utc),
+        timestamp=datetime.now(UTC),
         ai_configured=settings.ai_configured,
     )
 

@@ -64,6 +64,9 @@ jobs:
       - name: Install dependencies (locked)
         run: uv sync --locked
 
+      - name: Ruff（静态检查）
+        run: uv run ruff check app tests
+
       - name: Apply migrations
         run: uv run alembic upgrade head
 

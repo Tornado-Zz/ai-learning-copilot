@@ -4,7 +4,7 @@ persisted week plan (GET /study-plan, POST /study-plan/generate), contract 6.5 +
 
 from __future__ import annotations
 
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from typing import Literal
 
 from pydantic import BaseModel, Field, field_serializer
@@ -100,7 +100,7 @@ class PlanItemResponse(PlanItemOut):
 
     @field_serializer("updated_at")
     def _serialize_updated_at(self, value: datetime) -> str:
-        return value.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+        return value.astimezone(UTC).isoformat().replace("+00:00", "Z")
 
 
 class UnscheduledLessonOut(BaseModel):

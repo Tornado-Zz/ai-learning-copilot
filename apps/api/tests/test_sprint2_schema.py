@@ -10,7 +10,7 @@ from __future__ import annotations
 import subprocess
 import sys
 import uuid
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from pathlib import Path
 
 import pytest
@@ -365,7 +365,7 @@ async def test_02b_lesson_and_progress_constraints_reject_bad_rows(
                     "lesson_id": lesson_id,
                     "status": "completed",
                     "self_assessment": 2,
-                    "started_at": datetime(2026, 1, 1, tzinfo=timezone.utc),
+                    "started_at": datetime(2026, 1, 1, tzinfo=UTC),
                     "completed_at": None,
                 },
             )
@@ -380,7 +380,7 @@ async def test_02b_lesson_and_progress_constraints_reject_bad_rows(
                 "lesson_id": lesson_id,
                 "status": "in_progress",
                 "self_assessment": 1,
-                "started_at": datetime(2026, 1, 1, tzinfo=timezone.utc),
+                "started_at": datetime(2026, 1, 1, tzinfo=UTC),
                 "completed_at": None,
             },
         )

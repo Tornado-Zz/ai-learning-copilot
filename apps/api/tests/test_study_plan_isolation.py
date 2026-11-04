@@ -7,7 +7,6 @@
 from __future__ import annotations
 
 import uuid
-from datetime import date, timedelta
 
 import pytest
 from sqlalchemy import text

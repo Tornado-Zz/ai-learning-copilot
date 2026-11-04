@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from pydantic import BaseModel, Field, field_serializer
 
@@ -71,7 +71,7 @@ class HistoryAttemptOut(BaseModel):
 
     @field_serializer("submitted_at")
     def _iso_z(self, value: datetime) -> str:
-        return value.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+        return value.astimezone(UTC).isoformat().replace("+00:00", "Z")
 
 
 class DiagnosticHistoryResponse(BaseModel):
@@ -109,4 +109,4 @@ class DiagnosticAttemptDetailResponse(BaseModel):
 
     @field_serializer("submitted_at")
     def _iso_z(self, value: datetime) -> str:
-        return value.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+        return value.astimezone(UTC).isoformat().replace("+00:00", "Z")

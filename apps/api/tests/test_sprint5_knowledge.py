@@ -19,10 +19,11 @@ import copy
 import subprocess
 import sys
 import uuid
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any, AsyncIterator
+from typing import Any
 
 import httpx
 import pytest
@@ -40,7 +41,7 @@ PREVIOUS_REVISION = "0005_sprint4_ai_interactions"
 # 0006 仍是链上的一环，但不再是 head。
 CURRENT_HEAD = "0010_capstone_review_requires_reviewer"
 
-NOW = datetime(2026, 4, 1, 12, 0, tzinfo=timezone.utc)
+NOW = datetime(2026, 4, 1, 12, 0, tzinfo=UTC)
 
 DOC_URL = "https://docs.python.org/3/tutorial/introduction.html"
 OTHER_DOC_URL = "https://docs.python.org/3/tutorial/controlflow.html"
@@ -798,11 +799,11 @@ async def test_16_ingest_endpoint_reports_every_source(env) -> None:
 async def test_17_sources_endpoint_reports_freshness_and_chunk_counts() -> None:
     session = FakeSession()
     fresh_id = session.add_source(
-        DOC_URL, title=DOC_TITLE, fetched_at=datetime.now(timezone.utc)
+        DOC_URL, title=DOC_TITLE, fetched_at=datetime.now(UTC)
     )
     session.add_chunk(fresh_id, content="a list comprehension builds a new list")
     session.add_source(
-        OTHER_DOC_URL, title="Control Flow", fetched_at=datetime.now(timezone.utc) - timedelta(days=40)
+        OTHER_DOC_URL, title="Control Flow", fetched_at=datetime.now(UTC) - timedelta(days=40)
     )
 
     async with _app_client(session) as http:
@@ -849,7 +850,7 @@ def _matching_session() -> FakeSession:
     # to it: two days old, comfortably inside the 30-day stale threshold.
     session = FakeSession()
     source_id = session.add_source(
-        DOC_URL, title=DOC_TITLE, fetched_at=datetime.now(timezone.utc) - timedelta(days=2)
+        DOC_URL, title=DOC_TITLE, fetched_at=datetime.now(UTC) - timedelta(days=2)
     )
     session.add_chunk(
         source_id, heading="List comprehension", content="a list comprehension builds a new list"
@@ -1023,7 +1024,7 @@ async def test_21_0006_is_on_the_chain_and_creates_exactly_two_tables(
 async def test_22_real_ingest_search_and_idempotent_rerun(db_session: AsyncSession) -> None:
     fetcher = FakeFetcher({UNIQUE_DOC_URL: DOC_HTML})
     first = await knowledge.ingest(
-        db_session, urls=[UNIQUE_DOC_URL], fetcher=fetcher, now=datetime.now(timezone.utc)
+        db_session, urls=[UNIQUE_DOC_URL], fetcher=fetcher, now=datetime.now(UTC)
     )
     added = first["results"][0]["chunks_added"]
     assert first["results"][0]["status"] == "ok"
@@ -1039,7 +1040,7 @@ async def test_22_real_ingest_search_and_idempotent_rerun(db_session: AsyncSessi
     assert top["fetched_at"].endswith("Z")
 
     second = await knowledge.ingest(
-        db_session, urls=[UNIQUE_DOC_URL], fetcher=fetcher, now=datetime.now(timezone.utc)
+        db_session, urls=[UNIQUE_DOC_URL], fetcher=fetcher, now=datetime.now(UTC)
     )
     assert second["results"][0] == {
         "url": UNIQUE_DOC_URL,
@@ -1074,7 +1075,7 @@ async def test_23_real_tutor_call_cites_a_real_chunk(db_session: AsyncSession) -
         db_session,
         urls=[UNIQUE_DOC_URL],
         fetcher=FakeFetcher({UNIQUE_DOC_URL: DOC_HTML}),
-        now=datetime.now(timezone.utc),
+        now=datetime.now(UTC),
     )
     transport = StubAiTransport()
     async with _app_client(db_session, ai_client=_ai_client(transport)) as http:
