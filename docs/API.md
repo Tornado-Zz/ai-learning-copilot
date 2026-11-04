@@ -85,7 +85,7 @@
 | 16 | PUT | `/api/v1/lessons/{lesson_id}/progress` | 写课程进度（只进不退） |
 | 17 | GET | `/api/v1/exercises` | 练习列表（可按课程过滤） |
 | 18 | GET | `/api/v1/exercises/{exercise_id}` | 练习详情（不含答案键）；带 `review` 复习上下文（无复习项为 `null`）与 `requirements` 要求清单（v0.1.18 起，判题按同序编号引用） |
-| 19 | POST | `/api/v1/exercises/{exercise_id}/submissions` | 提交练习并判题 |
+| 19 | POST | `/api/v1/exercises/{exercise_id}/submissions` | 提交练习并判题；先做 `ast.parse` 语法解析（只解析不执行），再剥离注释/docstring 跑静态规则 |
 | 20 | GET | `/api/v1/exercises/{exercise_id}/submissions` | 该题提交历史 |
 | 21 | GET | `/api/v1/submissions/recent` | 跨题最近提交 |
 | 22 | POST | `/api/v1/ai/tutor` | AI 导师问答（需 `DEEPSEEK_API_KEY`） |

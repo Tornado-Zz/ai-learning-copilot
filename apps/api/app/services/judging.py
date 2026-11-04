@@ -21,6 +21,7 @@ B1 证据口径（唯一，不得改写）：
 
 from __future__ import annotations
 
+import ast
 import io
 import re
 import tokenize
@@ -185,6 +186,27 @@ def _strip_comments_fallback(code_text: str) -> str:
     return "\n".join(out_lines)
 
 
+def syntax_error(code_text: str) -> str | None:
+    """把代码交给 Python 的解析器，返回人话错误；合法时返回 None。
+
+    这是**解析**，不是执行：ast.parse 只读语法，不运行任何一行用户代码，
+    与「服务端绝不执行用户代码」的红线不冲突（本模块依旧没有 eval/exec/subprocess）。
+
+    为什么值得做：静态规则全中并不代表代码能跑。少写一个右括号也能命中
+    「定义了函数」这条规则，学习者会收到「通过」——那是过分乐观的通过。
+    """
+    try:
+        ast.parse(code_text)
+    except SyntaxError as error:
+        line = error.lineno or 0
+        reason = error.msg or "invalid syntax"
+        return f"代码无法解析：第 {line} 行附近 {reason}"
+    except (RecursionError, MemoryError, ValueError):
+        # 病态输入（超深嵌套、超大表达式）不该让判题 500。
+        return "代码无法解析：结构过于复杂或长度异常"
+    return None
+
+
 def pattern_hits(pattern: str, code_text: str) -> bool:
     """正则优先；题目种子里写坏正则时退化成字面包含，绝不因为一条模式而 500。
 
@@ -250,6 +272,19 @@ def judge_static_rule(
     # 匹配用的文本先抹掉注释与 docstring：否则把要求抄进注释即可通过。
     matchable = code_for_matching(code_text)
     checks: list[Check] = []
+    # 语法先过一遍：解析不通过的代码不可能跑通，规则全中也必须判失败。
+    parse_error = syntax_error(code_text)
+    checks.append(
+        Check(
+            name="syntax",
+            passed=parse_error is None,
+            detail=(
+                "代码可以通过 Python 的语法解析（只解析，不执行）"
+                if parse_error is None
+                else f"{parse_error}。判题只做文本比对、不执行代码，但语法不合法的代码不可能跑通。"
+            ),
+        )
+    )
     missing_required = 0
     for index, pattern in enumerate(required_patterns, start=1):
         hit = pattern_hits(pattern, matchable)
@@ -304,18 +339,20 @@ def judge_static_rule(
             )
         )
 
-    is_passed = missing_required == 0 and hit_forbidden == 0 and output_ok
-    checks.append(
-        Check(
-            name=JUDGING_MODE_STATIC_RULE,
-            passed=is_passed,
-            detail=(
-                JUDGING_NOTICE
-                if is_passed
-                else f"静态规则未全部通过（缺 {missing_required} 项必须写法，"
-                f"命中 {hit_forbidden} 项禁止写法）。{JUDGING_NOTICE}"
-            ),
+    is_passed = (
+        parse_error is None and missing_required == 0 and hit_forbidden == 0 and output_ok
+    )
+    if is_passed:
+        summary = JUDGING_NOTICE
+    elif parse_error is not None:
+        summary = f"语法不合法，本次判失败（{parse_error}）。{JUDGING_NOTICE}"
+    else:
+        summary = (
+            f"静态规则未全部通过（缺 {missing_required} 项必须写法，"
+            f"命中 {hit_forbidden} 项禁止写法）。{JUDGING_NOTICE}"
         )
+    checks.append(
+        Check(name=JUDGING_MODE_STATIC_RULE, passed=is_passed, detail=summary)
     )
 
     return _build_judgment(
