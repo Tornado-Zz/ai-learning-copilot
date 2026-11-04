@@ -1,6 +1,6 @@
 import type { AssessmentState } from "@/lib/contract";
 import { cx, Tag } from "@/components/ui";
-import { levelLabel, levelLabelForState, levelShort, stateLabel, formatScore, domainName } from "@/lib/labels";
+import { levelLabelForState, levelShort, stateLabel, formatScore, domainName } from "@/lib/labels";
 
 export type SkillView = {
   code: string;
