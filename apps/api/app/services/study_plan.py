@@ -184,6 +184,25 @@ SELECT_SETTLED_EXERCISE_TARGETS = text(
 
 # R10: exercise rows settled on a day also count toward that day's exercise cap,
 # exactly like done/skipped minutes count toward its minute budget.
+# R10：一节课一天只有一个练习位，**终态**（done/skipped）行算占满。
+#
+# 这里必须只算终态：已排但未完成的 scheduled 行要被「重新发出」以保持幂等，
+# 若把它也算作占位、让生成器跳过它，EXPIRE_STALE_ITEMS 会把它 retire 掉，
+# 计划里的练习就会凭空消失（实测会导致 5 个计划用例失败）。
+#
+# 只算终态同时解决了口径之争：学习者跳过某课练习后，同一次重生成不会给同一
+# 节课同一天再排一道新的——那既违反「一节课一天一个练习」，也像在追着人催。
+SELECT_TAKEN_LESSON_DAYS = text(
+    """
+    SELECT e.lesson_id, spi.plan_date
+    FROM study_plan_items spi
+    JOIN exercises e ON e.id = spi.target_id
+    WHERE spi.user_id = :user_id AND spi.week_start = :week_start
+      AND spi.kind = 'exercise'
+      AND spi.status IN ('done', 'skipped')
+    """
+)
+
 SELECT_DAY_EXERCISE_HISTORY = text(
     """
     SELECT plan_date, count(*) AS items
@@ -416,6 +435,18 @@ async def _settled_exercise_targets(
         .scalars()
         .all()
     }
+
+
+async def _taken_lesson_days(
+    session: AsyncSession, user_id: int, monday: date
+) -> set[tuple[int, date]]:
+    """(lesson_id, plan_date) pairs that already hold an exercise row, any status."""
+    rows = (
+        await session.execute(
+            SELECT_TAKEN_LESSON_DAYS, {"user_id": user_id, "week_start": monday}
+        )
+    ).mappings().all()
+    return {(int(row["lesson_id"]), row["plan_date"]) for row in rows}
 
 
 async def _settled_exercise_days(
@@ -758,6 +789,7 @@ def _schedule_exercises(
     settled: dict[date, tuple[int, int]],
     settled_exercise_days: dict[date, int],
     settled_exercise_ids: set[int],
+    taken_lesson_days: set[tuple[int, date]],
     exercises_by_lesson: dict[int, list[dict[str, object]]],
     daily_cap: int,
 ) -> list[dict[str, object]]:
@@ -771,7 +803,9 @@ def _schedule_exercises(
     three hold: the day's exercise cap is not spent yet (settled exercise rows
     count against it), the row's planned_minutes fits in what the day has left
     (R8: daily_minutes minus settled history minus the lessons already placed),
-    and that exercise is not already settled this week.
+    and that exercise is not already settled this week. A lesson that already holds an
+    exercise row on that day - in any status, skipped included - is passed over, so a
+    skip never turns into a second exercise from the same lesson on the same day.
 
     planned_minutes is max(MIN_PLANNED_MINUTES, estimated_minutes): the table's
     CHECK is 15-480, so a 10-minute exercise is reserved as 15 minutes and the
@@ -797,6 +831,9 @@ def _schedule_exercises(
         for lesson in lessons:
             if placed >= daily_cap:
                 break
+            # R10 严格读法：这节课当天已经有练习行（任何状态）就不再排第二道。
+            if (int(lesson["target_id"]), plan_date) in taken_lesson_days:
+                continue
             options = exercises_by_lesson.get(int(lesson["target_id"]), [])
             candidate = next(
                 (
@@ -1193,6 +1230,7 @@ async def generate_plan(
         settled,
         await _settled_exercise_days(session, user_id, monday),
         await _settled_exercise_targets(session, user_id, monday),
+        await _taken_lesson_days(session, user_id, monday),
         exercises_by_lesson,
         daily_exercise_cap,
     )

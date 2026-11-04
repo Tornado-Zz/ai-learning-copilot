@@ -1,4 +1,5 @@
-"""Sprint 7 验收：a3（API）与 a4（LLM）两节 AI 课，以及每课两道练习（迁移 0011）。
+"""Sprint 7 / Sprint 8 验收：a3（API）、a4（LLM）、a5（RAG）、a6（Agent）四节 AI 课，
+以及每课两道练习（迁移 0011 + 0012）。
 
 隔离与只读策略与 test_lessons_api.py 一致：lessons / exercises 是迁移播种的版本化
 内容，产品不会改写，所以按 code 逐条断言；用户数据（submissions 等）一行都不碰。
@@ -20,13 +21,21 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 pytestmark = pytest.mark.integration
 
-MIGRATION_PATH = (
-    Path(__file__).resolve().parents[1] / "migrations" / "versions" / "0011_sprint7_ai_content.py"
+VERSIONS_DIR = Path(__file__).resolve().parents[1] / "migrations" / "versions"
+MIGRATION_PATHS = (
+    VERSIONS_DIR / "0011_sprint7_ai_content.py",
+    VERSIONS_DIR / "0012_sprint8_rag_agent.py",
 )
 SPRINT7_REVISION = "0011_sprint7_ai_content"
+SPRINT8_REVISION = "0012_sprint8_rag_agent"
 PREVIOUS_REVISION = "0010_capstone_review_requires_reviewer"
 
-AI_LESSON_CODES = ["route_a.api.json", "route_a.llm.messages"]
+AI_LESSON_CODES = [
+    "route_a.api.json",
+    "route_a.llm.messages",
+    "route_a.rag.retrieval",
+    "route_a.agent.tool",
+]
 LEGACY_LESSON_CODES = [
     "route_a.py.variables",
     "route_a.py.control_flow",
@@ -83,14 +92,18 @@ PROBE_TABLES = (
 
 def _load_migration(path: Path) -> Any:
     """迁移文件按路径加载：versions 目录里的模块名以数字开头，不是可导入的包成员。"""
-    spec = importlib.util.spec_from_file_location("sprint7_ai_content", path)
+    spec = importlib.util.spec_from_file_location(path.stem, path)
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
 
 
-MIGRATION = _load_migration(MIGRATION_PATH)
+MIGRATION = _load_migration(MIGRATION_PATHS[0])
+RAG_MIGRATION = _load_migration(MIGRATION_PATHS[1])
+# 两个迁移各自导出的常量名不同（V2 / V3），合起来才是产品里全部 AI 课内容。
+SEEDED_LESSONS = (*MIGRATION.LESSONS_V2, *RAG_MIGRATION.LESSONS_V3)
+SEEDED_EXERCISES = (*MIGRATION.EXERCISES_V2, *RAG_MIGRATION.EXERCISES_V3)
 
 
 async def _ai_lessons(session: AsyncSession) -> list[dict[str, Any]]:
@@ -108,7 +121,7 @@ async def _ai_exercises(session: AsyncSession) -> list[dict[str, Any]]:
 
 
 async def test_01_two_ai_lessons_are_published(db_session: AsyncSession) -> None:
-    """a3 与 a4 各有一节课，且都是已发布、可直接学习的状态。"""
+    """a3 / a4 / a5 / a6 各有一节课，且都是已发布、可直接学习的状态。"""
     rows = await _ai_lessons(db_session)
     assert [row["code"] for row in rows] == AI_LESSON_CODES
 
@@ -127,6 +140,20 @@ async def test_01_two_ai_lessons_are_published(db_session: AsyncSession) -> None
             "estimated_minutes": 30,
             "order_index": 7,
         },
+        "route_a.rag.retrieval": {
+            "title": "检索增强：让回答有出处",
+            "skill_code": "route_a.a5",
+            "stage": 5,
+            "estimated_minutes": 30,
+            "order_index": 8,
+        },
+        "route_a.agent.tool": {
+            "title": "第一次让模型用工具",
+            "skill_code": "route_a.a6",
+            "stage": 6,
+            "estimated_minutes": 30,
+            "order_index": 9,
+        },
     }
     for row in rows:
         want = expected[row["code"]]
@@ -142,8 +169,8 @@ async def test_01_two_ai_lessons_are_published(db_session: AsyncSession) -> None
         assert 1 <= row["difficulty"] <= 5, row["code"]
         assert row["summary"].strip(), row["code"]
 
-    # 两节课必须接在既有 5 节之后，而不是插进 Python 基础课中间。
-    assert [row["order_index"] for row in rows] == [6, 7]
+    # 四节课必须接在既有 5 节之后，而不是插进 Python 基础课中间。
+    assert [row["order_index"] for row in rows] == [6, 7, 8, 9]
 
 
 async def test_02_each_ai_lesson_has_two_published_exercises(
@@ -151,7 +178,7 @@ async def test_02_each_ai_lesson_has_two_published_exercises(
 ) -> None:
     """每节新课 2 道练习，order_index 1、2，全部 published。"""
     rows = await _ai_exercises(db_session)
-    assert len(rows) == 4, [row["code"] for row in rows]
+    assert len(rows) == 8, [row["code"] for row in rows]
 
     per_lesson: dict[str, list[dict[str, Any]]] = {code: [] for code in AI_LESSON_CODES}
     for row in rows:
@@ -172,7 +199,7 @@ async def test_03_lesson_content_carries_the_same_five_blocks(
     """正文与既有 5 节课同款：schema_version / goal / explanation / example /
     common_mistakes / self_check，且讲解是成段文字而不是要点堆砌。"""
     rows = await _ai_lessons(db_session)
-    assert len(rows) == 2
+    assert len(rows) == 4
 
     for row in rows:
         content = row["content"]
@@ -210,7 +237,7 @@ async def test_04_exercise_answer_keys_can_tell_written_from_unwritten(
     """判题是纯文本静态规则，所以答案键必须自洽：正则合法、可见用例够 2 条、
     而且照着 starter 原样提交一定通不过（否则规则分不出「写了」和「没写」）。"""
     rows = await _ai_exercises(db_session)
-    assert len(rows) == 4
+    assert len(rows) == 8
 
     for row in rows:
         code = row["code"]
@@ -249,7 +276,7 @@ async def test_05_content_never_asks_for_a_real_network_call(
     """正文与练习 JSON 里不得出现真实地址或密钥字样：整节课离线可学、离线可判。"""
     lessons = await _ai_lessons(db_session)
     exercises = await _ai_exercises(db_session)
-    assert len(lessons) == 2 and len(exercises) == 4
+    assert len(lessons) == 4 and len(exercises) == 8
 
     blobs: list[tuple[str, str]] = []
     for row in lessons:
@@ -291,7 +318,7 @@ async def test_05_content_never_asks_for_a_real_network_call(
 
 
 async def test_06_migration_is_idempotent_on_a_clean_database(migration_probe) -> None:
-    """干净库：0010 -> head -> head。第二次升级不新增、不改写，正文与迁移常量逐字相同。"""
+    """干净库：0010 -> head（0011 + 0012）-> head。第二次升级不新增、不改写，正文与迁移常量逐字相同。"""
     async with migration_probe() as probe:
         probe.upgrade(PREVIOUS_REVISION)
         before = await probe.counts(PROBE_TABLES)
@@ -299,10 +326,12 @@ async def test_06_migration_is_idempotent_on_a_clean_database(migration_probe) -
         assert before["exercises"] == 10, before
 
         probe.upgrade("head")
-        assert SPRINT7_REVISION in probe.current()
+        # head 是 0012：0011 与 0012 两段种子都在这一次 0010 -> head 里跑过。
+        assert SPRINT8_REVISION in probe.current()
         first = await probe.counts(PROBE_TABLES)
-        assert first["lessons"] == before["lessons"] + 2, first
-        assert first["exercises"] == before["exercises"] + 4, first
+        # 0011 追加 2 节 + 4 道，0012 再追加 2 节 + 4 道：0010 -> head 一共 +4 节、+8 道。
+        assert first["lessons"] == before["lessons"] + 4, first
+        assert first["exercises"] == before["exercises"] + 8, first
 
         # 再升一次 head：alembic 已在 head，种子必须一行不加、一行不改。
         probe.upgrade("head")
@@ -317,19 +346,20 @@ async def test_06_migration_is_idempotent_on_a_clean_database(migration_probe) -
             exercise_rows = await connection.fetch(
                 "SELECT code, content_version, starter_code, required_patterns, visible_tests "
                 "FROM exercises WHERE code = ANY($1::text[])",
-                [exercise["code"] for exercise in MIGRATION.EXERCISES_V2],
+                [exercise["code"] for exercise in SEEDED_EXERCISES],
             )
 
-        assert len(lesson_rows) == 2 and len(exercise_rows) == 4
+        assert len(lesson_rows) == len(AI_LESSON_CODES)
+        assert len(exercise_rows) == len(SEEDED_EXERCISES)
         stored_content = {
             row["code"]: (row["content_version"], json.loads(row["content"]))
             for row in lesson_rows
         }
-        for lesson in MIGRATION.LESSONS_V2:
+        for lesson in SEEDED_LESSONS:
             assert stored_content[lesson["code"]] == (1, lesson["content"]), lesson["code"]
 
         stored_exercise = {row["code"]: row for row in exercise_rows}
-        for exercise in MIGRATION.EXERCISES_V2:
+        for exercise in SEEDED_EXERCISES:
             stored = stored_exercise[exercise["code"]]
             assert stored["content_version"] == 1, exercise["code"]
             assert stored["starter_code"] == exercise["starter_code"], exercise["code"]

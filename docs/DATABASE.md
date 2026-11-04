@@ -23,7 +23,7 @@ review_items, capstone_submissions,
 knowledge_sources, knowledge_chunks, diagnostic_attempts
 ```
 
-迁移：`0001` → `0011`（head `0011_sprint7_ai_content`），共 11 个版本文件。
+迁移：`0001` → `0012`（head `0012_sprint8_rag_agent`），共 12 个版本文件。
 
 ### 0.2 设计稿里有、但**没有建**的表，以及实际用了什么
 

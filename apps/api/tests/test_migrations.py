@@ -28,9 +28,11 @@ SPRINT6_REVISION = "0007_sprint6_plan_exercise_targets"
 # v0.1.2 的 0008 建了 review_items；v0.1.3 的 0009 只建 capstone_submissions。
 REVIEW_REVISION = "0008_review_items"
 CAPSTONE_REVISION = "0009_capstone_submissions"
-# v0.1.11 的 0011 补上 a3/a4 两节 AI 课与 4 道练习后 head 前移；0010 仍是链上一环。
+# v0.1.11 的 0011 补上 a3/a4 两节 AI 课与 4 道练习；0012 再补 a5/a6 两节与 4 道练习后 head 前移。
 CAPSTONE_REVIEW_REVISION = "0010_capstone_review_requires_reviewer"
-HEAD_REVISION = "0011_sprint7_ai_content"
+SPRINT7_REVISION = "0011_sprint7_ai_content"
+RAG_REVISION = "0012_sprint8_rag_agent"
+HEAD_REVISION = "0012_sprint8_rag_agent"
 SPRINT2_TABLES = {"lessons", "learning_progress", "study_plan_items"}
 SPRINT3_TABLES = {"exercises", "submissions"}
 
@@ -159,7 +161,8 @@ async def test_01_alembic_upgrade_head_succeeds_and_reports_head(database_url: s
     assert f"{SPRINT6_REVISION} -> {REVIEW_REVISION}" in history.stdout
     assert f"{REVIEW_REVISION} -> {CAPSTONE_REVISION}" in history.stdout
     assert f"{CAPSTONE_REVISION} -> {CAPSTONE_REVIEW_REVISION}" in history.stdout
-    assert f"{CAPSTONE_REVIEW_REVISION} -> {HEAD_REVISION}" in history.stdout
+    assert f"{CAPSTONE_REVIEW_REVISION} -> {SPRINT7_REVISION}" in history.stdout
+    assert f"{SPRINT7_REVISION} -> {RAG_REVISION}" in history.stdout
     current = subprocess.run(
         [sys.executable, "-m", "alembic", "current"],
         cwd=API_DIR,

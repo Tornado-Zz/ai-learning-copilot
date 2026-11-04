@@ -379,3 +379,40 @@ def migration_probe(database_url: str):
         return _open_probe(database_url)
 
     return _make
+
+
+async def create_isolated_learner(
+    session: AsyncSession,
+    *,
+    study_days: list[int],
+    daily_minutes: int,
+    level: int = 2,
+) -> int:
+    """自建一个学习者：已确认时区 + 档案 + 六域等级，全部落在调用方事务里。
+
+    计划相关用例应当用它而不是种子用户：种子用户带着真实学习历史（完成的课程、
+    终态的练习行、到期复习），断言会随真实使用漂移。详见 test_study_plan_isolation.py。
+    """
+    user_id = int(
+        (
+            await session.execute(
+                text("INSERT INTO users (display_name, timezone, timezone_source) "
+                     "VALUES (:name, :tz, 'user_confirmed') RETURNING id"),
+                {"name": "isolated-" + uuid.uuid4().hex[:8], "tz": "Asia/Shanghai"},
+            )
+        ).scalar_one()
+    )
+    await session.execute(
+        text("INSERT INTO user_profiles (user_id, study_days, daily_minutes) "
+             "VALUES (:user_id, CAST(:days AS smallint[]), :daily)"),
+        {"user_id": user_id, "days": study_days, "daily": daily_minutes},
+    )
+    if level > 0:
+        await session.execute(
+            text("INSERT INTO user_skill_levels (user_id, skill_id, level, evidence_kind, "
+                 "verification_method, assessment_state) "
+                 "SELECT :user_id, id, :level, 'diagnostic', 'static_rule', 'established' "
+                 "FROM skills WHERE level = 'domain'"),
+            {"user_id": user_id, "level": level},
+        )
+    return user_id

@@ -23,9 +23,12 @@ EXPECTED_CODES = [
     "route_a.py.list_dict",
     "route_a.py.functions",
     "route_a.py.debugging",
-    # 0011 追加 a3（API）与 a4（LLM）两节课，order_index 接着 5 往下排。
+    # 0011 追加 a3（API）与 a4（LLM），0012 追加 a5（RAG）与 a6（Agent），
+    # order_index 接着 5 往下排到 9。
     "route_a.api.json",
     "route_a.llm.messages",
+    "route_a.rag.retrieval",
+    "route_a.agent.tool",
 ]
 
 SELECT_PUBLISHED_LESSON_IDS = text(
@@ -91,7 +94,7 @@ async def test_03_five_lessons_are_seeded_with_complete_content(
             )
         )
     ).mappings().all()
-    # AC-S2-05 冻结的是「0003 播种的 3–5 节」；0011 之后产品是 7 节，
+    # AC-S2-05 冻结的是「0003 播种的 3–5 节」；0011/0012 之后产品是 9 节，
     # 因此只保留下限，课程清单由 EXPECTED_CODES 逐条钉死。
     assert 3 <= len(rows)
     assert [row["code"] for row in rows] == EXPECTED_CODES

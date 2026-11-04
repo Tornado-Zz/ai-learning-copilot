@@ -20,6 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import ApiError
 from app.services import study_plan as study_plan_service
+from tests.conftest import create_isolated_learner
 
 pytestmark = pytest.mark.integration
 
@@ -766,16 +767,15 @@ async def test_sprint6_03_daily_exercise_cap_follows_the_domain_level_average(
 async def test_sprint6_04_daily_minutes_never_overspent_with_exercises(
     api, db_session: AsyncSession
 ) -> None:
-    """④ 当日总分钟（lesson + exercise）≤ daily_minutes − 历史终态分钟。"""
+    """④ 当日总分钟（lesson + exercise）≤ daily_minutes − 历史终态分钟。
+
+    用自建用户而不是种子用户：种子用户带着真实学习历史（完成的课程、终态练习行、
+    到期复习会占掉当日额度），断言会随真实使用漂移。
+    """
     baseline = await _baseline(api, db_session)
-    user_id = int(baseline["user_id"])
     try:
-        await _confirmed(db_session, user_id)
-        await _complete_first_lessons(db_session, user_id)
-        # 周二/周三/周四：避开周一那两条 done/skipped 历史行，断言才干净
-        await db_session.execute(
-            SET_SPRINT6_PROFILE,
-            {"user_id": user_id, "days": [2, 3, 4], "daily_minutes": 45},
+        user_id = await create_isolated_learner(
+            db_session, study_days=[2, 3, 4], daily_minutes=45
         )
         monday = await _sprint6_monday(db_session)
         generated_days = {monday + timedelta(days=offset) for offset in (1, 2, 3)}
@@ -792,21 +792,26 @@ async def test_sprint6_04_daily_minutes_never_overspent_with_exercises(
         # 45 分钟 = 30 分钟课 + 15 分钟练习：额度一点不超，也一点不浪费
         assert all(total == 45 for total in totals.values()), totals
 
-        # 额度降到 40：剩余 10 分钟放不下 15 分钟的练习行 → 一个练习都不排
+        # 把额度压到「最短一节课 + 10 分钟」：剩余不足 15，练习行放不下 → 一个都不排。
+        # 不写死具体分钟数：课程时长会随内容增加而变化（20/25/30 分钟都可能有）。
+        shortest_lesson = min(
+            int(row["planned_minutes"]) for row in rows if row["kind"] == "lesson"
+        )
+        tight = shortest_lesson + 10
         await db_session.execute(
             SET_SPRINT6_PROFILE,
-            {"user_id": user_id, "days": [2, 3, 4], "daily_minutes": 40},
+            {"user_id": user_id, "days": [2, 3, 4], "daily_minutes": tight},
         )
         await study_plan_service.generate_plan(db_session, user_id=user_id, today_override=monday)
         rows_40 = await _sprint6_rows(db_session, user_id, monday)
         totals_40 = _sprint6_minutes(rows_40, generated_days)
-        assert all(total <= 40 for total in totals_40.values()), totals_40
+        assert all(total <= tight for total in totals_40.values()), totals_40
         assert not [
             row
             for row in rows_40
             if row["kind"] == "exercise" and row["status"] != "expired"
         ], "剩余额度不足时必须放弃练习，而不是超支"
-        print(f"当日总分钟 45->{sorted(totals.values())} 40->{sorted(totals_40.values())}")
+        print(f"当日总分钟 45->{sorted(totals.values())} 收紧到 {tight}->{sorted(totals_40.values())}")
     finally:
         await _restore(db_session, baseline)
 
@@ -891,14 +896,15 @@ async def test_sprint6_06_regeneration_is_idempotent_with_exercise_rows(
 async def test_sprint6_07_done_and_skipped_exercise_items_are_never_rewritten(
     api, db_session: AsyncSession
 ) -> None:
-    """⑦ 练习行的 done/skipped 终态不被改写，status 与 updated_at 都原样。"""
+    """⑦ 练习行的 done/skipped 终态不被改写，status 与 updated_at 都原样。
+
+    自建用户：种子用户的练习位可能被历史终态行或到期复习占掉，排不满两道待执行练习，
+    断言会随真实使用漂移。120 分钟额度 + L2 等级保证每天排得下练习。
+    """
     baseline = await _baseline(api, db_session)
-    user_id = int(baseline["user_id"])
     try:
-        await _confirmed(db_session, user_id)
-        await db_session.execute(
-            SET_SPRINT6_PROFILE,
-            {"user_id": user_id, "days": [2, 3, 4], "daily_minutes": 120},
+        user_id = await create_isolated_learner(
+            db_session, study_days=[2, 3, 4], daily_minutes=120
         )
         monday = await _sprint6_monday(db_session)
         await study_plan_service.generate_plan(db_session, user_id=user_id, today_override=monday)
@@ -1009,3 +1015,56 @@ async def test_sprint6_08_patch_works_for_exercise_items(
     finally:
         await _restore(db_session, baseline)
 
+
+async def test_r10_a_skipped_exercise_does_not_reopen_the_same_lesson_slot(
+    api, db_session: AsyncSession
+) -> None:
+    """R10：一节课一天只有一个练习位。跳过之后重生成不得再给同一节课同一天排一道。
+
+    这条规则是 v0.1.13 收紧的：此前只把 scheduled 行排除在候选之外，于是学习者跳过
+    某课练习后，下一次重生成会给同一节课同一天再排一道新的——既违反口径，也像在追着
+    人催。现在终态（done/skipped）行同样占满该位。
+    """
+    baseline = await _baseline(api, db_session)
+    try:
+        user_id = await create_isolated_learner(
+            db_session, study_days=[2, 3, 4], daily_minutes=240
+        )
+        monday = await _sprint6_monday(db_session)
+        await study_plan_service.generate_plan(db_session, user_id=user_id, today_override=monday)
+
+        rows = await _sprint6_rows(db_session, user_id, monday)
+        scheduled = [row for row in rows if row["kind"] == "exercise" and row["status"] == "scheduled"]
+        assert scheduled, "先要有可跳过的练习行"
+        target = scheduled[0]
+        plan_date = target["plan_date"]
+        lesson_id = int(
+            (
+                await db_session.execute(
+                    text("SELECT lesson_id FROM exercises WHERE id = :id"),
+                    {"id": int(target["target_id"])},
+                )
+            ).scalar_one()
+        )
+
+        await study_plan_service.update_plan_item(
+            db_session, user_id=user_id, item_id=int(target["id"]), status="skipped"
+        )
+        await study_plan_service.generate_plan(db_session, user_id=user_id, today_override=monday)
+
+        same_slot = (
+            await db_session.execute(
+                text(
+                    "SELECT count(*) FROM study_plan_items spi "
+                    "JOIN exercises e ON e.id = spi.target_id "
+                    "WHERE spi.user_id = :user_id AND spi.kind = 'exercise' "
+                    "AND spi.plan_date = :plan_date AND e.lesson_id = :lesson_id"
+                ),
+                {"user_id": user_id, "plan_date": plan_date, "lesson_id": lesson_id},
+            )
+        ).scalar_one()
+        assert int(same_slot) == 1, (
+            f"该课该日应只有一个练习位（被跳过的那道），实际 {same_slot} 行"
+        )
+    finally:
+        await _restore(db_session, baseline)
