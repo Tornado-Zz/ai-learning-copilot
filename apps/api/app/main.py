@@ -15,6 +15,7 @@ from app import SERVICE_NAME, __version__
 from app.api.v1.router import api_router
 from app.core.config import get_settings
 from app.core.db import dispose_engine
+from app.core.errors import REQUEST_ID_HEADER, install_error_handlers, new_request_id
 from app.core.logging import configure_logging
 
 logger = logging.getLogger("app.main")
@@ -22,30 +23,38 @@ request_logger = logging.getLogger("app.request")
 
 
 class RequestLoggingMiddleware(BaseHTTPMiddleware):
-    """Logs method, path, status_code and duration_ms. Never logs bodies or headers."""
+    """Assigns a request id and logs method, path, status_code, duration_ms and request_id.
+
+    Never logs bodies or headers.
+    """
 
     async def dispatch(
         self, request: Request, call_next: RequestResponseEndpoint
     ) -> Response:
+        request_id = new_request_id()
+        request.state.request_id = request_id
         started = time.perf_counter()
         try:
             response = await call_next(request)
         except Exception:
             duration_ms = int(round((time.perf_counter() - started) * 1000))
             request_logger.exception(
-                "method=%s path=%s status_code=500 duration_ms=%d",
+                "method=%s path=%s status_code=500 duration_ms=%d request_id=%s",
                 request.method,
                 request.url.path,
                 duration_ms,
+                request_id,
             )
             raise
         duration_ms = int(round((time.perf_counter() - started) * 1000))
+        response.headers[REQUEST_ID_HEADER] = request_id
         request_logger.info(
-            "method=%s path=%s status_code=%d duration_ms=%d",
+            "method=%s path=%s status_code=%d duration_ms=%d request_id=%s",
             request.method,
             request.url.path,
             response.status_code,
             duration_ms,
+            request_id,
         )
         return response
 
@@ -78,9 +87,10 @@ def create_app() -> FastAPI:
     application = FastAPI(
         title="AI Learning Copilot API",
         version=__version__,
-        description=f"{SERVICE_NAME} - Sprint 0 skeleton",
+        description=f"{SERVICE_NAME} - Sprint 1 identity and diagnostics",
         lifespan=lifespan,
     )
+    install_error_handlers(application)
     # Added first => innermost. CORS is added last so preflight and error
     # responses also carry the CORS headers.
     application.add_middleware(RequestLoggingMiddleware)

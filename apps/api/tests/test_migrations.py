@@ -1,0 +1,320 @@
+"""验收 1–3：S1 的 0002 迁移可升级、五张表结构正确、skills 六条种子正确。
+
+Sprint 2 追加 0003 后 head 变为 0003；本文件仍只校验 0002 建立的那 5 张表结构不变，
+3 张新表的结构与约束由 tests/test_sprint2_schema.py 覆盖。
+"""
+
+from __future__ import annotations
+
+import subprocess
+import sys
+from pathlib import Path
+
+import pytest
+from sqlalchemy import pool, text
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+
+pytestmark = pytest.mark.integration
+
+API_DIR = Path(__file__).resolve().parents[1]
+SPRINT1_REVISION = "0002_sprint1a_identity_diagnostics"
+REVISION = "0003_sprint2_lessons_and_plan"
+# S3 阶段 B 追加 0004、Sprint 4 追加 0005、Sprint 5 追加 0006、Sprint 6 追加 0007
+# 后 head 变成 0007；0002 -> 0003 -> 0004 -> 0005 -> 0006 仍然是链上的一环。
+SPRINT3_REVISION = "0004_sprint3_exercises"
+SPRINT4_REVISION = "0005_sprint4_ai_interactions"
+SPRINT5_REVISION = "0006_sprint5_knowledge"
+HEAD_REVISION = "0007_sprint6_plan_exercise_targets"
+SPRINT2_TABLES = {"lessons", "learning_progress", "study_plan_items"}
+SPRINT3_TABLES = {"exercises", "submissions"}
+
+EXPECTED_COLUMNS = {
+    "users": {
+        "id",
+        "display_name",
+        "timezone",
+        "timezone_source",
+        "locale",
+        "created_at",
+        "updated_at",
+    },
+    "user_profiles": {
+        "user_id",
+        "target_track",
+        "study_days",
+        "daily_minutes",
+        "weekly_minutes",
+        "onboarding_completed_at",
+        "created_at",
+        "updated_at",
+    },
+    "skills": {
+        "id",
+        "code",
+        "name_zh",
+        "level",
+        "route_code",
+        "order_index",
+        "description",
+        "created_at",
+        "updated_at",
+    },
+    "diagnostic_attempts": {
+        "id",
+        "user_id",
+        "attempt_token",
+        "question_set_version",
+        "rule_version",
+        "answers",
+        "domain_scores",
+        "total_correct",
+        "total_questions",
+        "submitted_at",
+        "created_at",
+    },
+    "user_skill_levels": {
+        "id",
+        "user_id",
+        "skill_id",
+        "level",
+        "evidence_kind",
+        "verification_method",
+        "evidence_strength",
+        "assessment_state",
+        "evidence_ref",
+        "evidence_count",
+        "created_at",
+        "updated_at",
+    },
+}
+
+EXPECTED_CONSTRAINTS = {
+    "ck_users_timezone_source",
+    "ck_up_target_track",
+    "ck_up_daily_minutes",
+    "ck_up_study_days_card",
+    "ck_up_study_days_vals",
+    "ck_skills_level",
+    "ck_da_total_correct",
+    "ck_da_total_questions",
+    "ck_da_total_within",
+    "uq_diagnostic_attempts_token",
+    "uq_skills_code",
+    "ck_usk_level",
+    "ck_usk_evidence_kind",
+    "ck_usk_verification_method",
+    "ck_usk_assessment_state",
+    "ck_usk_evidence_count",
+    "ck_usk_strength_none_level0",
+    "ck_usk_state_level",
+}
+
+EXPECTED_INDEXES = {
+    "ix_skills_route_order",
+    "ix_diagnostic_attempts_user_time",
+    "ix_user_skill_levels_user_skill",
+}
+
+SKILL_SEED = [
+    ("route_a.a1", "Python 基础", 1),
+    ("route_a.a2", "编程实践", 2),
+    ("route_a.a3", "API", 3),
+    ("route_a.a4", "LLM", 4),
+    ("route_a.a5", "RAG 与 Agent 基础", 5),
+    ("route_a.a6", "简单 AI 项目", 6),
+]
+
+
+async def test_01_alembic_upgrade_head_succeeds_and_reports_head(database_url: str) -> None:
+    # head 自 Sprint 2 起是 0003；S1 的 0002 仍是链上已应用的一环。
+    upgrade = subprocess.run(
+        [sys.executable, "-m", "alembic", "upgrade", "head"],
+        cwd=API_DIR,
+        capture_output=True,
+        text=True,
+        timeout=300,
+        check=False,
+    )
+    assert upgrade.returncode == 0, upgrade.stderr
+    history = subprocess.run(
+        [sys.executable, "-m", "alembic", "history"],
+        cwd=API_DIR,
+        capture_output=True,
+        text=True,
+        timeout=300,
+        check=False,
+    )
+    assert history.returncode == 0, history.stderr
+    assert f"{SPRINT1_REVISION} -> {REVISION}" in history.stdout
+    assert f"{REVISION} -> {SPRINT3_REVISION}" in history.stdout
+    assert f"{SPRINT3_REVISION} -> {SPRINT4_REVISION}" in history.stdout
+    assert f"{SPRINT4_REVISION} -> {SPRINT5_REVISION}" in history.stdout
+    assert f"{SPRINT5_REVISION} -> {HEAD_REVISION}" in history.stdout
+    current = subprocess.run(
+        [sys.executable, "-m", "alembic", "current"],
+        cwd=API_DIR,
+        capture_output=True,
+        text=True,
+        timeout=300,
+        check=False,
+    )
+    assert current.returncode == 0, current.stderr
+    assert f"{HEAD_REVISION} (head)" in current.stdout
+
+    engine = create_async_engine(database_url, poolclass=pool.NullPool)
+    try:
+        async with engine.connect() as connection:
+            version = (
+                await connection.execute(text("SELECT version_num FROM alembic_version"))
+            ).scalar_one()
+    finally:
+        await engine.dispose()
+    assert version == HEAD_REVISION
+
+
+async def test_02_five_business_tables_have_the_frozen_structure(
+    db_session: AsyncSession,
+) -> None:
+    tables = set(
+        (
+            await db_session.execute(
+                text(
+                    "SELECT table_name FROM information_schema.tables "
+                    "WHERE table_schema = 'public'"
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    assert set(EXPECTED_COLUMNS) <= tables
+    # 3 张新表由 0003 建立，且不得改动这 5 张表的结构
+    assert SPRINT2_TABLES <= tables
+    # 2 张新表由 0004 建立，同样不得改动这 5 张表的结构
+    assert SPRINT3_TABLES <= tables
+
+    for table, expected in EXPECTED_COLUMNS.items():
+        rows = (
+            await db_session.execute(
+                text(
+                    "SELECT column_name, is_nullable, is_generated, data_type "
+                    "FROM information_schema.columns "
+                    "WHERE table_schema = 'public' AND table_name = :table"
+                ),
+                {"table": table},
+            )
+        ).mappings().all()
+        assert {row["column_name"] for row in rows} == expected, table
+
+    column_types = {
+        (row["table_name"], row["column_name"]): row
+        for row in (
+            await db_session.execute(
+                text(
+                    "SELECT table_name, column_name, data_type, udt_name, is_generated "
+                    "FROM information_schema.columns WHERE table_schema = 'public'"
+                )
+            )
+        ).mappings()
+    }
+    assert column_types[("user_profiles", "weekly_minutes")]["is_generated"] == "ALWAYS"
+    assert column_types[("user_skill_levels", "evidence_strength")]["is_generated"] == "ALWAYS"
+    assert column_types[("user_profiles", "study_days")]["udt_name"] == "_int2"
+    assert column_types[("diagnostic_attempts", "answers")]["data_type"] == "jsonb"
+    assert column_types[("diagnostic_attempts", "domain_scores")]["data_type"] == "jsonb"
+    assert column_types[("users", "created_at")]["data_type"] == "timestamp with time zone"
+    assert column_types[("diagnostic_attempts", "attempt_token")]["data_type"] == (
+        "character varying"
+    )
+
+    constraint_names = set(
+        (
+            await db_session.execute(
+                text(
+                    "SELECT c.conname FROM pg_constraint c "
+                    "JOIN pg_class t ON t.oid = c.conrelid "
+                    "JOIN pg_namespace n ON n.oid = t.relnamespace "
+                    "WHERE n.nspname = 'public' AND t.relname IN "
+                    "('users','user_profiles','skills','diagnostic_attempts','user_skill_levels')"
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    assert EXPECTED_CONSTRAINTS <= constraint_names
+
+    index_names = set(
+        (
+            await db_session.execute(
+                text("SELECT indexname FROM pg_indexes WHERE schemaname = 'public'")
+            )
+        )
+        .scalars()
+        .all()
+    )
+    assert EXPECTED_INDEXES <= index_names
+
+    triggers = (
+        await db_session.execute(
+            text(
+                "SELECT tgname FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid "
+                "WHERE NOT t.tgisinternal AND c.relname = 'user_profiles'"
+            )
+        )
+    ).scalars().all()
+    assert "trg_user_profiles_study_days_unique" in triggers
+
+
+async def test_03_skills_seed_is_exactly_six_domains(db_session: AsyncSession) -> None:
+    # 只断言 route_a 的 domain 级种子（skills 是迁移种子，产品使用不会新增行）
+    rows = (
+        await db_session.execute(
+            text(
+                "SELECT code, name_zh, level, route_code, order_index "
+                "FROM skills WHERE route_code = 'route_a' AND level = 'domain' "
+                "ORDER BY order_index"
+            )
+        )
+    ).mappings().all()
+    assert [(row["code"], row["name_zh"], row["order_index"]) for row in rows] == SKILL_SEED
+    assert {row["level"] for row in rows} == {"domain"}
+    assert {row["route_code"] for row in rows} == {"route_a"}
+    codes = [row["code"] for row in rows]
+    assert len(codes) == len(set(codes)) == 6
+    assert (
+        await db_session.execute(
+            text("SELECT count(*) FROM skills WHERE level <> 'domain'")
+        )
+    ).scalar_one() == 0
+
+
+async def test_03b_seeded_identity_rows_exist_for_single_user_mode(
+    db_session: AsyncSession,
+) -> None:
+    # 存在性断言：真实使用会改写档案与时区确认状态，因此只校验"种子身份存在"与生成列不变式
+    user = (
+        await db_session.execute(
+            text(
+                "SELECT id, timezone FROM users WHERE display_name = '学习者' "
+                "ORDER BY id LIMIT 1"
+            )
+        )
+    ).mappings().first()
+    assert user is not None
+    assert user["timezone"] == "Asia/Shanghai"
+    profile = (
+        await db_session.execute(
+            text(
+                "SELECT study_days, daily_minutes, weekly_minutes, target_track "
+                "FROM user_profiles WHERE user_id = :user_id"
+            ),
+            {"user_id": user["id"]},
+        )
+    ).mappings().first()
+    assert profile is not None
+    assert profile["target_track"] == "route_a"
+    assert len(profile["study_days"]) >= 1
+    assert 15 <= profile["daily_minutes"] <= 480
+    # 生成列恒等式：周容量恒为 学习日数 × 每日分钟
+    assert profile["weekly_minutes"] == len(profile["study_days"]) * profile["daily_minutes"]
