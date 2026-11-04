@@ -5,6 +5,30 @@
 
 ## [Unreleased]
 
+## [0.1.11] — 2026-11-04
+
+把依赖告警从「文档里的一句话」变成**可回归的基线**。
+
+### Added
+
+- `apps/web/scripts/audit-check.mjs`：用 npm 自己的语义把两类问题分开——
+  - `npm audit --omit=dev` **运行时依赖必须为 0**（硬门禁）；
+  - `npm audit` 全量告警数不得高于 `apps/web/security-baseline.json` 的 `dev.total`（当前 16）。
+  - 离线时退出码 **2** 并明确打印「本次未做检查」——**不静默跳过**。
+- `apps/web/security-baseline.json`：记录 16 个 dev-only 告警的范围、为什么不能用 `--force` 修、以及人工复核结论（逐个看 via 链，均不含 `next`/`react`/`react-dom`）。
+- 接入 `scripts/ci.ps1` 的 security 步骤（容忍退出码 2 并给出可见警告），`CONTRIBUTING.md` 与 `SECURITY.md` 列出三个自查脚本。
+
+### Fixed
+
+- `audit-check.mjs` 首次运行报「审计不可用」。根因是 **Node 18.20 起（CVE-2024-27980 修复）默认拒绝执行 `.cmd`/`.bat`**，而 Windows 上 `npm` 就是 `npm.cmd`，`execFileSync` 直接 spawn 会 ENOENT。补 `shell: true` 后正常。这与之前 `Start-Process` 启动不了 `npm` 是同一类问题，只是报错方式不同。
+- `scripts/ci.ps1` 里我一度写进中文注释（34 个非 ASCII 字符），会破坏 Windows PowerShell 5.1 的解析；已改回纯 ASCII 并加检测。
+
+### Verified
+
+- 基线匹配：`运行时依赖告警 0 / 全部 16 / 符合基线`，退出码 0。
+- 基线调低到 15：打印「开发依赖告警由 15 增加到 16」并退出码 1；恢复后回到 0。
+- 三个自查脚本一次性全跑通：文档一致性、依赖基线、死导出（377 个导出 0 个死代码）。
+
 ## [0.1.10] — 2026-11-04
 
 把「文档一致性」从人工比对变成**可执行检查**。
