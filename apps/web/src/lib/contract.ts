@@ -61,13 +61,6 @@ export type DiagnosticResult = {
 
 export type PlanDay = { date: string; minutes: number };
 
-export type PlanPreview = {
-  computed: boolean;
-  persisted: boolean;
-  days: PlanDay[];
-  note: string;
-};
-
 export type HistoryItem = {
   attemptId: number | null;
   questionSetVersion: string;
@@ -349,35 +342,6 @@ export function parseDiagnosticResult(body: unknown): DiagnosticResult | null {
     ruleVersion: readString(record, ["rule_version", "ruleVersion"]) ?? "",
     questionSetVersion: readString(record, ["question_set_version", "questionSetVersion"]),
     domains,
-  };
-}
-
-export function parsePlanPreview(body: unknown): PlanPreview | null {
-  const record = asRecord(body);
-  if (!record) {
-    return null;
-  }
-  const rawDays = asArray(record.days);
-  if (!rawDays) {
-    return null;
-  }
-  const days: PlanDay[] = [];
-  for (const item of rawDays) {
-    const day = asRecord(item);
-    if (!day) {
-      continue;
-    }
-    const date = readString(day, ["date"]);
-    if (!date) {
-      continue;
-    }
-    days.push({ date, minutes: readNumber(day, ["minutes"]) ?? 0 });
-  }
-  return {
-    computed: readBoolean(record, ["computed"]) ?? true,
-    persisted: readBoolean(record, ["persisted"]) ?? false,
-    days,
-    note: readString(record, ["note"]) ?? "",
   };
 }
 

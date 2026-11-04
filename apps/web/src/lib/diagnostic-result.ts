@@ -62,10 +62,6 @@ export function subscribeLastResult(onChange: () => void): () => void {
   };
 }
 
-export function readLastResult(): StoredResult | null {
-  return parseLastResult(readRaw());
-}
-
 export function writeLastResult(result: DiagnosticResult): boolean {
   try {
     window.sessionStorage.setItem(
@@ -79,11 +75,3 @@ export function writeLastResult(result: DiagnosticResult): boolean {
   return true;
 }
 
-export function clearLastResult(): void {
-  try {
-    window.sessionStorage.removeItem(LAST_RESULT_STORAGE_KEY);
-  } catch {
-    // 忽略存储不可用。
-  }
-  window.dispatchEvent(new Event(LAST_RESULT_EVENT));
-}

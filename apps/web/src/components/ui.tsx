@@ -79,38 +79,6 @@ export function Tag({
   );
 }
 
-export function SoonTag({ label = "开发中" }: { label?: string }) {
-  return (
-    <span className="inline-flex items-center rounded-control border border-dashed border-line-strong px-1.5 py-0.5 text-[11px] leading-4 font-medium whitespace-nowrap text-muted">
-      {label}
-    </span>
-  );
-}
-
-export function DisabledButton({
-  children,
-  className,
-}: {
-  children: ReactNode;
-  className?: string;
-}) {
-  return (
-    <button
-      type="button"
-      disabled
-      aria-disabled="true"
-      title="该功能尚未实现"
-      className={cx(
-        "inline-flex items-center gap-2 rounded-control border border-dashed border-line-strong bg-surface px-3 py-1.5 text-[12px] font-medium whitespace-nowrap text-muted",
-        className,
-      )}
-    >
-      <span>{children}</span>
-      <SoonTag />
-    </button>
-  );
-}
-
 type DotTone = "success" | "warning" | "danger" | "muted";
 
 const DOT_TONE: Record<DotTone, string> = {

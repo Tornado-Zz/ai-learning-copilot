@@ -21,11 +21,6 @@ export function reviewItemsPath(options: { due?: boolean; limit?: number }): str
   return query.length === 0 ? REVIEW_ITEMS_PATH : REVIEW_ITEMS_PATH + "?" + query.join("&");
 }
 
-// 练习提交判题后由服务端调度；本页不调用该端点，保留地址定义供后续写操作复用。
-export function reviewResultPath(id: number): string {
-  return REVIEW_ITEMS_PATH + "/" + encodeURIComponent(String(id)) + "/result";
-}
-
 export type ReviewItem = {
   id: number;
   exerciseId: number | null;

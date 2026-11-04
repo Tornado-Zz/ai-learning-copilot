@@ -30,13 +30,6 @@ export const AI_QUESTION_MAX = 2000;
 
 export type AssistanceLevel = "none" | "hint" | "partial_code" | "full_answer";
 
-export const ASSISTANCE_LEVELS: AssistanceLevel[] = [
-  "none",
-  "hint",
-  "partial_code",
-  "full_answer",
-];
-
 export const DEFAULT_ASSISTANCE_LEVEL: AssistanceLevel = "hint";
 
 export type AssistanceLevelOption = {
@@ -68,10 +61,6 @@ export const ASSISTANCE_LEVEL_OPTIONS: AssistanceLevelOption[] = [
     description: "给出可直接抄写的完整实现，对本练习的证据价值最低。",
   },
 ];
-
-export function isAssistanceLevel(value: unknown): value is AssistanceLevel {
-  return typeof value === "string" && ASSISTANCE_LEVELS.indexOf(value as AssistanceLevel) >= 0;
-}
 
 export function assistanceLevelLabel(level: string): string {
   for (const option of ASSISTANCE_LEVEL_OPTIONS) {

@@ -49,17 +49,6 @@ export function stateLabel(state: AssessmentState): string {
   return STATE_LABELS[state] ?? STATE_LABELS.unassessed;
 }
 
-export type StateTone = "neutral" | "accent" | "muted";
-
-export function stateTone(state: AssessmentState): StateTone {
-  if (state === "established") {
-    return "accent";
-  }
-  if (state === "requested_verification") {
-    return "neutral";
-  }
-  return "muted";
-}
 
 export function domainName(code: string, fallback?: string | null): string {
   for (const domain of DOMAINS) {

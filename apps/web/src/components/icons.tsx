@@ -131,22 +131,6 @@ export function IconClose({ className }: IconProps) {
   );
 }
 
-export function IconArrowRight({ className }: IconProps) {
-  return (
-    <Svg className={className}>
-      <path d="M4.5 12h14M13 6.5l5.5 5.5L13 17.5" />
-    </Svg>
-  );
-}
-
-export function IconCheck({ className }: IconProps) {
-  return (
-    <Svg className={className}>
-      <path d="M5 12.5l4.5 4.5L19 6.5" />
-    </Svg>
-  );
-}
-
 export function IconProfile({ className }: IconProps) {
   return (
     <Svg className={className}>
