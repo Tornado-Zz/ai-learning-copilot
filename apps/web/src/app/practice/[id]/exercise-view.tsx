@@ -230,6 +230,26 @@ export function ExerciseView({ exerciseId }: { exerciseId: string }) {
               description="题面来自后端内容，本页不改写题干、不提供参考答案。"
             />
             <CardBody className="space-y-3">
+              {exercise.requirements.length > 0 ? (
+                <div className="rounded-control bg-surface px-3 py-2">
+                  <p className="text-[11px] font-medium text-muted">
+                    本题要求（判题按这个顺序逐条检查，失败时会指出第几项）
+                  </p>
+                  <ol className="mt-1 space-y-1">
+                    {exercise.requirements.map((requirement, index) => (
+                      <li
+                        key={String(index)}
+                        className="flex gap-2 text-[12px] leading-relaxed text-fg"
+                      >
+                        <span className="shrink-0 font-mono text-[11px] text-muted tabular-nums">
+                          {String(index + 1)}.
+                        </span>
+                        <span>{requirement}</span>
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+              ) : null}
               {exercise.prompt ? (
                 <p className="whitespace-pre-line text-[13px] leading-relaxed text-fg">
                   {exercise.prompt}

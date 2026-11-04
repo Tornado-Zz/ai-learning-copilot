@@ -5,6 +5,32 @@
 
 ## [Unreleased]
 
+## [0.1.18] — 2026-11-04
+
+让判题失败时**说人话**：此前学习者只看到「第 4 项必须出现的写法没有出现」，而题面根本没有编号，没人知道「第 4 项」是什么。
+
+### Added
+
+- 迁移 `0014_sprint10_requirement_labels`：`exercises` 新增 `requirement_labels`（jsonb 数组），为**全部 22 道题、124 条判题规则**逐条写中文标签，与 `required_patterns` **一一对应、顺序相同、条数相等**。
+- `GET /exercises/{id}` 返回 `requirements`（要求清单）。它复述题面要求，不是答案键；`required_patterns` / `forbidden_patterns` / `expected_output` 仍绝不外泄。
+- 练习详情页新增「本题要求」编号清单：判题前就能看到 1..N 条要求，失败时后端按同一编号引用。
+
+### Changed
+
+- 判题失败文案：`第 4 项「用负一索引取报错的最后一行」没有出现`。标签缺失时回退到旧文案，不报错。
+
+### Fixed
+
+- **`tests/test_health.py` 把版本号写死成 `0.1.0`**：这既是每次发版都要改测试的负担，也掩盖了「运行时版本与包版本不一致」——那正是一个存在过 17 个版本的 bug。改为只断言 `body["version"] == __version__`。
+
+### Verified
+
+- 22/22 道题 `len(requirement_labels) == len(required_patterns)`，**0 条不匹配**。
+- 真实失败提交：`第 3 项「用负一索引取报错的最后一行」没有出现`（starter 代码实测）。
+- 详情响应含 `requirements`（7 条）且**答案键零泄露**。
+- 浏览器：`/practice/25` 渲染「本题要求」清单，Console 0 报错。
+- `149 passed`（单元）/ `140 passed`（集成）/ `ruff` 干净。
+
 ## [0.1.17] — 2026-11-04
 
 给仓库补上**真实截图**，并修掉一个界面长期显示错误版本的 bug。

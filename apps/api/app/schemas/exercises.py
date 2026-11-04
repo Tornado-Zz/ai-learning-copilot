@@ -117,11 +117,21 @@ class ExerciseDetailOut(ExerciseListItemOut):
 
     The answer keys (required_patterns / forbidden_patterns / expected_output)
     are not part of this model: the detail query does not even read them.
+
+    requirements is not an answer key: it is the numbered, human-readable form of
+    the requirement each required_pattern stands for, in the same order the judge
+    walks them. It is what lets a failed check say
+    「第 2 项「定义函数 error_line 读出出错行号」没有出现」instead of「第 2 项」,
+    which the learner had no way to look up.
     """
 
     prompt: str
     starter_code: str
     visible_tests: list[ExerciseVisibleTestOut]
+    requirements: list[str] = Field(
+        default_factory=list,
+        description="题面要求的中文清单，顺序与判题顺序一致；不是答案键",
+    )
     review: ExerciseReviewOut | None = Field(
         default=None,
         description="当前用户在这道题上的复习上下文；错题本没有这一行时为 null",

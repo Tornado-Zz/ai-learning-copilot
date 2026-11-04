@@ -71,6 +71,9 @@ export type ExerciseDetail = {
   estimatedMinutes: number;
   difficulty: string;
   review: ExerciseReview | null;
+  // 判题要求的可读清单，顺序与后端判题顺序一致。判题失败时后端会按「第 N 项」引用它，
+  // 因此这里必须按同样顺序展示编号 1..N；缺失时页面不显示清单，也不自行编造要求。
+  requirements: string[];
 };
 
 export type SubmissionCheck = { name: string; passed: boolean; detail: string };
@@ -224,6 +227,25 @@ function readDifficulty(record: Record<string, unknown>, keys: string[]): string
     }
   }
   return "";
+}
+
+// 要求清单是纯字符串数组；任何非字符串项直接丢掉，不猜、不补位——
+// 补位会让「第 N 项」与后端判题的编号错位。
+function readStringArray(value: unknown): string[] {
+  const list = asArray(value);
+  if (!list) {
+    return [];
+  }
+  const out: string[] = [];
+  for (const entry of list) {
+    if (typeof entry === "string") {
+      const text = entry.trim();
+      if (text !== "") {
+        out.push(text);
+      }
+    }
+  }
+  return out;
 }
 
 function readVisibleTests(value: unknown): VisibleTest[] {
@@ -444,6 +466,7 @@ export function parseExerciseDetail(body: unknown): ExerciseDetailPayload | null
       estimatedMinutes: readNumber(exercise, ["estimated_minutes", "estimatedMinutes"]) ?? 0,
       difficulty: readDifficulty(exercise, ["difficulty"]),
       review: parseExerciseReview(exercise.review),
+      requirements: readStringArray(exercise.requirements),
     },
     history,
   };

@@ -30,6 +30,9 @@ MIGRATION_PATHS = (
 SPRINT7_REVISION = "0011_sprint7_ai_content"
 SPRINT8_REVISION = "0012_sprint8_rag_agent"
 SPRINT9_REVISION = "0013_sprint9_practice_content"
+# 0014 只给 exercises 加 requirement_labels 并回填标签，不动课程与练习的正文：
+# 它仍然让 head 前移，所以「第二次 upgrade 不新增行」这条断言要跟着 head 走。
+LABELS_REVISION = "0014_sprint10_requirement_labels"
 PREVIOUS_REVISION = "0010_capstone_review_requires_reviewer"
 
 AI_LESSON_CODES = [
@@ -347,7 +350,7 @@ async def test_05_content_never_asks_for_a_real_network_call(
 
 
 async def test_06_migration_is_idempotent_on_a_clean_database(migration_probe) -> None:
-    """干净库：0010 -> head（0011 + 0012 + 0013）-> head。第二次升级不新增、不改写。"""
+    """干净库：0010 -> head（0011 + 0012 + 0013 + 0014）-> head。第二次升级不新增、不改写。"""
     async with migration_probe() as probe:
         probe.upgrade(PREVIOUS_REVISION)
         before = await probe.counts(PROBE_TABLES)
@@ -355,8 +358,8 @@ async def test_06_migration_is_idempotent_on_a_clean_database(migration_probe) -
         assert before["exercises"] == 10, before
 
         probe.upgrade("head")
-        # head 是 0013：0011 / 0012 / 0013 三段种子都在这一次 0010 -> head 里跑过。
-        assert SPRINT9_REVISION in probe.current()
+        # head 是 0014：0011 / 0012 / 0013 三段种子都在这一次 0010 -> head 里跑过。
+        assert LABELS_REVISION in probe.current()
         first = await probe.counts(PROBE_TABLES)
         # 0011 追加 2 节 + 4 道，0012 再追加 2 节 + 4 道，0013 再追加 2 节 + 4 道：
         # 0010 -> head 一共 +6 节、+12 道。

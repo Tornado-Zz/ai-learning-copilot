@@ -23,7 +23,9 @@ async def test_health_returns_200_with_contract_fields(client: httpx.AsyncClient
     }
     assert body["status"] == "ok"
     assert body["service"] == SERVICE_NAME == "ai-learning-copilot-api"
-    assert body["version"] == __version__ == "0.1.0"
+    # 不写死版本号：版本随发布递增，硬编码会让每次发版都要改测试，
+    # 更糟的是它掩盖了「运行时版本与包版本不一致」——那正是一个存在过 17 个版本的 bug。
+    assert body["version"] == __version__
     assert body["environment"] == "local"
     assert body["ai_configured"] is False
 

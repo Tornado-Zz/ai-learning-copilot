@@ -3,7 +3,7 @@
 面向**非计算机理工科背景、编程基础薄弱、希望转向 AI 应用开发**的初学者的自学平台。
 目标不是把课程播放完，而是让学习者最终能**独立开发并展示一个简单的 AI 应用**。
 
-> **当前版本 v0.1.13（单用户本地 MVP）**：数据库迁移 head 为 `0013_sprint9_practice_content`（共 13 个版本），
+> **当前版本 v0.1.18（单用户本地 MVP）**：数据库迁移 head 为 `0014_sprint10_requirement_labels`（共 14 个版本），
 > 后端共 **37 个操作 / 34 条路径**、**15 张业务表**；前端 **14 条页面路由**全部可访问。
 > 已完成：学习档案、20 题能力诊断与六域画像、**11 节课程**（Python 基础 5 节 + 编程实践 2 节 + API / LLM / RAG / Agent 4 节）与进度、周计划（含练习项）、
 > **22 道练习**的静态规则判题、DeepSeek AI 导师（额度与超时护栏）、知识库入库与引用检索。
@@ -58,7 +58,7 @@ Python 基础 → 编程实践 → API → LLM → RAG/Agent 基础 → 简单 A
 | ![今日概览](docs/images/01-today.jpg) | ![学习路线](docs/images/02-lessons.jpg) |
 | **周计划**（每天为什么这样排都写在行内） | **课程正文**（六块结构之一） |
 | ![周计划](docs/images/03-plan.jpg) | ![课程正文](docs/images/04-lesson-detail.jpg) |
-| **练习页**（顶部说明这道题是欠着的复习） | **诊断历史**（批次可追溯） |
+| **练习页**（顶部说明这是欠着的复习；「本题要求」编号与判题失败时的「第 N 项」一一对应） | **诊断历史**（批次可追溯） |
 | ![练习详情](docs/images/05-practice.jpg) | ![诊断历史](docs/images/06-history.jpg) |
 
 截图会过时，所以 `scripts/docs-consistency-check.mjs` 会读取 `docs/images/VERSION` 与当前版本比对：不一致时打印提示，提醒重新截图。**宁可被告知截图旧了，也不放一张没人核对的图。**
@@ -225,7 +225,7 @@ Sprint 4 / 5 新增的六个后端变量：`AI_TIMEOUT_SECONDS`、`AI_DAILY_TOKE
 | --- | --- | --- |
 | 后端单元档 | `uv run pytest -q` | 数据库停止也必须全绿 |
 | 后端集成档 | `uv run pytest -q -m integration` | **hermetic**：用例自建夹具（临时库 + 自插基线行），在**全新数据库**上同样全绿 |
-| 迁移 | `uv run alembic upgrade head` + `alembic current` | 应为 `0013_sprint9_practice_content (head)` |
+| 迁移 | `uv run alembic upgrade head` + `alembic current` | 应为 `0014_sprint10_requirement_labels (head)` |
 | 前端 | `npx tsc --noEmit` / `npm run lint` / `npm run build` | 三项均应退出码 0 |
 
 CI 只有两个 job：`api`（PostgreSQL service + `uv sync --locked` + `ruff check` + `alembic upgrade head` + head 校验 + 单元档 + 集成档）与 `web`（`npm ci` + tsc + lint + build），**不使用任何 secret**。

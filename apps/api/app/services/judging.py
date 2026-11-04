@@ -134,6 +134,21 @@ def _build_judgment(
     )
 
 
+def requirement_label_at(labels: Sequence[str], index: int) -> str:
+    """第 index 条（从 1 开始）中文要求；缺失或不可用时返回空串。
+
+    空串是「没有可展示的标签」的唯一表示，调用方据此回退旧文案。标签顺序与
+    required_patterns 一致，所以第 index 条标签说的就是第 index 条规则。
+    """
+    position = index - 1
+    if position < 0 or position >= len(labels):
+        return ""
+    value = labels[position]
+    if not isinstance(value, str):
+        return ""
+    return value.strip()
+
+
 def judge_static_rule(
     *,
     code_text: str,
@@ -141,11 +156,16 @@ def judge_static_rule(
     forbidden_patterns: Sequence[str],
     expected_output: str | None,
     claimed_output: str | None,
+    requirement_labels: Sequence[str] = (),
 ) -> Judgment:
     """B1 static_rule：必含全命中 + 禁止全不命中 +（可选）输出文本相等。
 
     输出比对只在「题目有期望输出 + 用户填了自报输出」时进行（冻结口径）。
-    detail 只给序号与结论，不回显模式本身，避免把答案键泄漏给客户端。
+    detail 只给序号、标签与结论，不回显模式本身，避免把答案键泄漏给客户端。
+
+    requirement_labels 是第 N 条规则的中文要求（顺序与 required_patterns 一致）；
+    标签缺失、为空或不是字符串时回退到原来的序号文案——标签只影响措辞，绝不参与
+    判定，也绝不会让判题报错。
     """
     checks: list[Check] = []
     missing_required = 0
@@ -153,6 +173,7 @@ def judge_static_rule(
         hit = pattern_hits(pattern, code_text)
         if not hit:
             missing_required += 1
+        label = requirement_label_at(requirement_labels, index)
         checks.append(
             Check(
                 name=f"required_{index}",
@@ -160,7 +181,11 @@ def judge_static_rule(
                 detail=(
                     f"第 {index} 项必须出现的写法已出现"
                     if hit
-                    else f"第 {index} 项必须出现的写法没有出现，请对照题目要求逐条检查"
+                    else (
+                        f"第 {index} 项「{label}」没有出现"
+                        if label
+                        else f"第 {index} 项必须出现的写法没有出现，请对照题目要求逐条检查"
+                    )
                 ),
             )
         )
@@ -254,6 +279,7 @@ def judge_submission(
     expected_output: str | None,
     claimed_output: str | None,
     self_reported_passed: bool | None,
+    requirement_labels: Sequence[str] = (),
 ) -> Judgment:
     """入口：填了 self_reported_passed 就是自检，否则走静态规则（口径冻结）。"""
     if self_reported_passed is not None:
@@ -264,6 +290,7 @@ def judge_submission(
         forbidden_patterns=forbidden_patterns,
         expected_output=expected_output,
         claimed_output=claimed_output,
+        requirement_labels=requirement_labels,
     )
 
 
@@ -283,4 +310,5 @@ __all__ = [
     "judge_submission",
     "normalize_output",
     "pattern_hits",
+    "requirement_label_at",
 ]

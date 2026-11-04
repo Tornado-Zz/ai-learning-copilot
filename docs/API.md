@@ -1,6 +1,6 @@
-# API 参考（v0.1.16）
+# API 参考（v0.1.18）
 
-本文档描述 **v0.1.16 实际注册的 37 个操作 / 34 条路径**，与实际运行的 `GET /openapi.json` 逐条核对过（`/exercises/{id}/submissions` 有 GET 与 POST 两个操作）。
+本文档描述 **v0.1.18 实际注册的 37 个操作 / 34 条路径**，与实际运行的 `GET /openapi.json` 逐条核对过（`/exercises/{id}/submissions` 有 GET 与 POST 两个操作）。
 契约来源：[SPRINT1A_CONTRACT.md](SPRINT1A_CONTRACT.md) §6；实现来源：`apps/api/app/api/v1/routes/`。
 
 - 基地址：`http://127.0.0.1:8000`
@@ -84,7 +84,7 @@
 | 15 | GET | `/api/v1/lessons/{lesson_id}` | 课程详情（正文五块） |
 | 16 | PUT | `/api/v1/lessons/{lesson_id}/progress` | 写课程进度（只进不退） |
 | 17 | GET | `/api/v1/exercises` | 练习列表（可按课程过滤） |
-| 18 | GET | `/api/v1/exercises/{exercise_id}` | 练习详情（不含答案键）；v0.1.16 起带 `review` 复习上下文（无复习项时为 `null`） |
+| 18 | GET | `/api/v1/exercises/{exercise_id}` | 练习详情（不含答案键）；带 `review` 复习上下文（无复习项为 `null`）与 `requirements` 要求清单（v0.1.18 起，判题按同序编号引用） |
 | 19 | POST | `/api/v1/exercises/{exercise_id}/submissions` | 提交练习并判题 |
 | 20 | GET | `/api/v1/exercises/{exercise_id}/submissions` | 该题提交历史 |
 | 21 | GET | `/api/v1/submissions/recent` | 跨题最近提交 |

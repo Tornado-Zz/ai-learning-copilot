@@ -9,8 +9,10 @@ Four invariants live here:
    从不 UPDATE user_skill_levels，也不授予 L3/L4；MVP 的等级上限仍是 L2。
 3. 详情不返回答案键：SELECT_EXERCISE_DETAIL 根本不读 required_patterns /
    forbidden_patterns / expected_output；需要它们的只有独立的判题查询
-   SELECT_EXERCISE_FOR_JUDGING。详情里的 review 块只读 review_items，且按
-   (user_id, exercise_id) 限定，别人的错题本进不来。
+   SELECT_EXERCISE_FOR_JUDGING。详情唯一额外读的是 requirement_labels——题面
+   要求的中文清单，它复述要求而不是答案键，正是判分文案「第 N 项」要引用的东西。
+   详情里的 review 块只读 review_items，且按 (user_id, exercise_id) 限定，
+   别人的错题本进不来。
 4. attempt_no 的单调性由数据库唯一约束兜底：一次 INSERT ... SELECT 里算
    max+1，真出现并发时唯一约束报冲突，接口返回 409，而不是覆盖历史。
 """
@@ -91,7 +93,7 @@ SELECT_EXERCISE_DETAIL = text(
     WITH {_LATEST_AND_PASSED}
     SELECT e.id, e.code, e.lesson_id, l.code AS lesson_code, e.title, e.order_index,
            e.difficulty, e.estimated_minutes, e.content_version, e.status,
-           e.prompt, e.starter_code, e.visible_tests,
+           e.prompt, e.starter_code, e.visible_tests, e.requirement_labels,
            jsonb_array_length(e.visible_tests) AS visible_test_count,
            COALESCE(p.passed_count, 0) AS passed_count,
            lat.last_submission_id, lat.last_attempt_no, lat.last_is_passed,
@@ -124,7 +126,8 @@ SELECT_EXERCISE_DETAIL = text(
 # its result never leaves the service (the response model has no such fields).
 SELECT_EXERCISE_FOR_JUDGING = text(
     """
-    SELECT e.id, e.code, e.required_patterns, e.forbidden_patterns, e.expected_output
+    SELECT e.id, e.code, e.required_patterns, e.forbidden_patterns, e.expected_output,
+           e.requirement_labels
     FROM exercises e
     WHERE e.id = :exercise_id AND e.status = 'published' AND e.deleted_at IS NULL
     """
@@ -333,6 +336,9 @@ async def get_exercise(
     detail["prompt"] = str(values["prompt"])
     detail["starter_code"] = str(values["starter_code"])
     detail["visible_tests"] = _visible_tests(values["visible_tests"])
+    # 标签复述题面要求，不是答案键：判题失败时它就是「第 N 项」的内容，
+    # 顺序与 required_patterns 一致，因此可以直接给学习者看。
+    detail["requirements"] = _patterns(values["requirement_labels"])
     detail["review"] = _review_block(values)
     return detail
 
@@ -353,6 +359,7 @@ async def _exercise_for_judging(session: AsyncSession, exercise_id: int) -> dict
         "required_patterns": _patterns(row["required_patterns"]),
         "forbidden_patterns": _patterns(row["forbidden_patterns"]),
         "expected_output": None if row["expected_output"] is None else str(row["expected_output"]),
+        "requirement_labels": _patterns(row["requirement_labels"]),
     }
 
 
@@ -384,6 +391,7 @@ async def create_submission(
         expected_output=exercise["expected_output"],  # type: ignore[arg-type]
         claimed_output=payload.claimed_output,
         self_reported_passed=payload.self_reported_passed,
+        requirement_labels=exercise["requirement_labels"],  # type: ignore[arg-type]
     )
 
     try:
