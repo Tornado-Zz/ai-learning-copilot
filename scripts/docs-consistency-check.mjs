@@ -58,6 +58,12 @@ for (const name of routeFiles) {
 }
 const pageRoutes = walk(APP_DIR, (n) => n === 'page.tsx').length;
 
+// 版本号的三处来源必须一致：前端展示常量、前端包、后端包。
+// 第一处曾经停在 0.1.3 而实际已到 0.1.x，界面上就一直显示旧版本。
+const webPkg = JSON.parse(readFileSync(join(ROOT, 'apps/web/package.json'), 'utf8')).version;
+const apiPkg = readFileSync(join(ROOT, 'apps/api/pyproject.toml'), 'utf8').match(/^version\s*=\s*"([^"]+)"/m)[1];
+const uiVersion = readFileSync(join(ROOT, 'apps/web/src/lib/app-version.ts'), 'utf8').match(/APP_VERSION\s*=\s*"([^"]+)"/)[1];
+
 // ---- 文档侧的自称 ----
 const DOC_FILES = [
   'README.md',
@@ -68,6 +74,11 @@ const DOC_FILES = [
 const docTexts = DOC_FILES.map((rel) => ({ rel, text: readFileSync(join(ROOT, rel), 'utf8') }));
 
 const problems = [];
+if (!(uiVersion === webPkg && webPkg === apiPkg)) {
+  problems.push(
+    '版本号不一致：app-version.ts=' + uiVersion + ' / package.json=' + webPkg + ' / pyproject=' + apiPkg,
+  );
+}
 function scan(pattern, label, expected) {
   for (const { rel, text } of docTexts) {
     const lines = text.split('\n');
@@ -106,6 +117,7 @@ console.log('  迁移版本    =', migrationFiles.length);
 console.log('  业务表      =', tables.size);
 console.log('  接口操作    =', operations);
 console.log('  页面路由    =', pageRoutes);
+console.log('  版本号      = ui ' + uiVersion + ' / web ' + webPkg + ' / api ' + apiPkg);
 console.log('');
 if (problems.length === 0) {
   console.log('文档一致性：全部一致。');
