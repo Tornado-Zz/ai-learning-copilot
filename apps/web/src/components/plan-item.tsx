@@ -14,9 +14,23 @@ import type { PlanItem } from "@/lib/learning";
 import { planItemReadOnlyNote } from "@/lib/plan-rules";
 
 // S6：类型徽章是零基础用户分辨「读课」与「动手练」的第一信息，所以排在标题之前。
+// v0.1.2：kind 新增 review（间隔复习），与 exercise 同属动手项、共用强调色；文案统一由 planItemKindLabel 给出。
+const ACTION_KINDS = ["exercise", "review"];
+
 function KindBadge({ kind }: { kind: string }) {
-  return <Tag tone={kind === "exercise" ? "accent" : "neutral"}>{planItemKindLabel(kind)}</Tag>;
+  return (
+    <Tag tone={ACTION_KINDS.indexOf(kind) >= 0 ? "accent" : "neutral"}>
+      {planItemKindLabel(kind)}
+    </Tag>
+  );
 }
+
+// 跳转文案跟随 kind，不再把 review 行说成「去学习」；未知 kind 用中性说法。
+const KIND_CTA: Record<string, string> = {
+  lesson: "去学习 →",
+  exercise: "去练习 →",
+  review: "去复习 →",
+};
 
 function Minutes({ value }: { value: number }) {
   return <span className="font-mono text-[11px] tabular-nums text-muted">{formatMinutes(value)}</span>;
@@ -108,7 +122,7 @@ export function PlanItemCard({ item, index }: { item: PlanItem; index: number })
         {readOnlyNote ? <span className="text-[11px] text-muted">{readOnlyNote}</span> : null}
         {item.targetHref !== null ? (
           <span className="ml-auto text-[11px] font-medium text-accent">
-            {item.kind === "exercise" ? "去练习 →" : "去学习 →"}
+            {KIND_CTA[item.kind] ?? "打开 →"}
           </span>
         ) : null}
       </div>

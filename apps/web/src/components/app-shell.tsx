@@ -37,6 +37,7 @@ const NAV_ICONS: Record<string, ComponentType<{ className?: string }>> = {
   "/result": IconProgress,
   "/plan": IconRoute,
   "/history": IconHistory,
+  "/review": IconQuiz,
   "/knowledge": IconKnowledge,
 };
 

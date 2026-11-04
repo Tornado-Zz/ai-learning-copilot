@@ -103,10 +103,12 @@ export const LESSON_STATUS_LABELS: Record<LessonStatus, string> = {
   completed: "已完成",
 };
 
-// S6：计划项类型徽章文案。未知 kind 原样显示，不抹成「课程」。
+// S6 起 lesson / exercise；v0.1.2 起周计划第三遍会排 kind='review'（target_id = exercises.id）。
+// 未知 kind 原样显示，不抹成「课程」。
 export const PLAN_ITEM_KIND_LABELS: Record<string, string> = {
   lesson: "课程",
   exercise: "练习",
+  review: "复习",
 };
 
 export function planItemKindLabel(kind: string): string {

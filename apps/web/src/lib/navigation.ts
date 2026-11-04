@@ -87,6 +87,13 @@ export const NAV_GROUPS: NavGroup[] = [
         summary: "按日期分组的真实计划 · 可重新生成",
       },
       {
+        href: "/review",
+        label: "错题本",
+        en: "Review",
+        title: "错题本",
+        summary: "答错的题按 1 / 3 / 7 / 14 天间隔复习",
+      },
+      {
         href: "/history",
         label: "历史",
         en: "History",
