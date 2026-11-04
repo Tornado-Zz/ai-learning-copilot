@@ -25,6 +25,19 @@ export function levelLabel(level: number): string {
   return "L" + String(value) + " · " + LEVEL_NAMES[value];
 }
 
+/**
+ * levelLabel 但考虑评估状态：LEVEL_NAMES[0] 是「未评估」，而 assessed_below_threshold
+ * 是「已经测过、只是没到 L1 门槛」。把两者拼在一起会印出「L0 · 未评估」紧挨着
+ * 「已测，未达 L1 门槛」这样的自相矛盾，所以 level 0 遇上这个状态时改口径。
+ */
+export function levelLabelForState(level: number, state: AssessmentState): string {
+  const value = clampLevelValue(level);
+  if (value === 0 && state === "assessed_below_threshold") {
+    return "L0 · 已测未达标";
+  }
+  return levelLabel(value);
+}
+
 export const STATE_LABELS: Record<AssessmentState, string> = {
   unassessed: "尚未评估",
   assessed_below_threshold: "已测，未达 L1 门槛",

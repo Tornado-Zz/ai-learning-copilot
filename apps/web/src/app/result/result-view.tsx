@@ -165,7 +165,7 @@ export function ResultView() {
             </div>
           ))}
           <p className="text-[11px] leading-relaxed text-muted">
-            L3 / L4 在 Sprint 1–3 不能由诊断自动授予，只能以待验证申请存在。
+            L3 / L4 不能由诊断自动授予，只能以「待验证申请」的形式存在。
           </p>
         </CardBody>
       </Card>

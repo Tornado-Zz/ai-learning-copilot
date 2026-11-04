@@ -1,6 +1,6 @@
 import type { AssessmentState } from "@/lib/contract";
 import { cx, Tag } from "@/components/ui";
-import { levelLabel, levelShort, stateLabel, formatScore, domainName } from "@/lib/labels";
+import { levelLabel, levelLabelForState, levelShort, stateLabel, formatScore, domainName } from "@/lib/labels";
 
 export type SkillView = {
   code: string;
@@ -70,7 +70,7 @@ export function SkillCard({ skill }: { skill: SkillView }) {
       </header>
       <div className="space-y-3 px-4 py-3">
         <div className="flex flex-wrap items-center gap-2">
-          <Tag tone={established ? "accent" : "neutral"}>{levelLabel(skill.level)}</Tag>
+          <Tag tone={established ? "accent" : "neutral"}>{levelLabelForState(skill.level, skill.state)}</Tag>
           <Tag>{stateLabel(skill.state)}</Tag>
         </div>
         <dl className="space-y-1 text-[11px]">
