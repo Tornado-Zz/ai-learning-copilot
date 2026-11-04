@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import type { ComponentType, ReactNode } from "react";
 import { NAV_GROUPS, findNavItem, isActivePath } from "@/lib/navigation";
+import { APP_VERSION_LABEL } from "@/lib/app-version";
 import type { NavItem } from "@/lib/navigation";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { SystemStatusCompact, SystemStatusProvider } from "@/components/system-status";
@@ -63,7 +64,7 @@ function Brand({
           AI Learning Copilot
         </span>
         {compact ? null : (
-          <span className="block truncate text-[11px] text-muted">自学路线 · v0.1.0</span>
+          <span className="block truncate text-[11px] text-muted">{"自学路线 · " + APP_VERSION_LABEL}</span>
         )}
       </span>
     </Link>
@@ -145,7 +146,7 @@ function SidebarFooter() {
   return (
     <div className="border-t border-line px-3 py-3">
       <SystemStatusCompact />
-      <p className="mt-1.5 px-0.5 text-[11px] text-muted">v0.1.0 · 首个可用版本</p>
+      <p className="mt-1.5 px-0.5 text-[11px] text-muted">{APP_VERSION_LABEL} · 本地单用户版</p>
     </div>
   );
 }
@@ -263,7 +264,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         <footer className="border-t border-line">
           <div className="mx-auto w-full max-w-content px-4 py-4 md:px-8">
             <p className="text-[11px] leading-relaxed text-muted">
-              v0.1.1 为单用户本地版本：页面数值均来自后端真实数据；标注「开发中」的入口尚不可用。
+              {APP_VERSION_LABEL} 为单用户本地版本：页面数值均来自后端真实数据；标注「开发中」的入口尚不可用。
             </p>
           </div>
         </footer>

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { CapstoneSection } from "./capstone-section";
 import { ProjectsView } from "./projects-view";
 
 export const metadata: Metadata = {
@@ -13,11 +14,14 @@ export default function ProjectsPage() {
         <h1 className="mt-2 text-2xl font-semibold tracking-tight text-fg">项目实践</h1>
         <p className="mt-2 max-w-2xl text-[13px] leading-relaxed text-muted">
           GET /api/v1/capstone/readiness 用真实学习数据判定是否具备做结业作品的条件；
-          提交与人工评审流程尚未实现，说明以后端返回为准。
+          下方可以提交结业作品并做本人自评（reviewer = self）——单用户本地版本没有第三方评审者。
         </p>
       </header>
       <div className="mt-8">
         <ProjectsView />
+      </div>
+      <div className="mt-8">
+        <CapstoneSection />
       </div>
     </div>
   );
