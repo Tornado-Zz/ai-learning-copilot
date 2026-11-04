@@ -147,6 +147,58 @@ export function IconCheck({ className }: IconProps) {
   );
 }
 
+export function IconProfile({ className }: IconProps) {
+  return (
+    <Svg className={className}>
+      <rect x="3.2" y="5" width="17.6" height="14" rx="2.2" />
+      <circle cx="8.6" cy="10.4" r="2" />
+      <path d="M5.6 16c.5-1.6 1.6-2.4 3-2.4s2.5.8 3 2.4" />
+      <path d="M14.2 10h4.2M14.2 13.4h4.2" />
+    </Svg>
+  );
+}
+
+export function IconQuiz({ className }: IconProps) {
+  return (
+    <Svg className={className}>
+      <path d="M7.5 6.5h12M7.5 12h12M7.5 17.5h12" />
+      <path d="M4.2 6.5l.9.9 1.6-1.8M4.2 12l.9.9 1.6-1.8M4.2 17.5l.9.9 1.6-1.8" />
+    </Svg>
+  );
+}
+
+export function IconHistory({ className }: IconProps) {
+  return (
+    <Svg className={className}>
+      <path d="M3.6 12a8.4 8.4 0 1 0 2.6-6.1" />
+      <path d="M3.4 4.6v4h4" />
+      <path d="M12 8.2V12l3 1.8" />
+    </Svg>
+  );
+}
+
+export function IconRoute({ className }: IconProps) {
+  return (
+    <Svg className={className}>
+      <circle cx="6" cy="6" r="2.2" />
+      <circle cx="18" cy="18" r="2.2" />
+      <path d="M6 8.2v4.3c0 1.6 1.3 2.9 2.9 2.9h4.4" />
+      <path d="M11.6 13.2l2.2 2.2-2.2 2.2" />
+    </Svg>
+  );
+}
+
+export function IconKnowledge({ className }: IconProps) {
+  return (
+    <Svg className={className}>
+      <rect x="3.4" y="4.6" width="11.4" height="10.4" rx="2" />
+      <path d="M3.4 8.2h11.4" />
+      <circle cx="15.2" cy="14.6" r="3.4" />
+      <path d="M17.7 17.1l2.5 2.5" />
+    </Svg>
+  );
+}
+
 export function IconSpark({ className }: IconProps) {
   return (
     <Svg className={className}>

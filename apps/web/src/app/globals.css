@@ -15,6 +15,9 @@
   --color-success: var(--success);
   --color-warning: var(--warning);
   --color-danger: var(--danger);
+  --color-success-text: var(--success-text);
+  --color-warning-text: var(--warning-text);
+  --color-danger-text: var(--danger-text);
   --radius-card: 8px;
   --radius-control: 6px;
   --container-content: 1200px;
@@ -36,6 +39,9 @@
   --success: #16a34a;
   --warning: #d97706;
   --danger: #dc2626;
+  --success-text: #15803d;
+  --warning-text: #b45309;
+  --danger-text: #dc2626;
   --overlay-shadow: 0 8px 24px rgba(10, 10, 10, 0.08);
   color-scheme: light;
 }
@@ -50,6 +56,9 @@
   --muted: #a1a1a1;
   --accent: #818cf8;
   --accent-soft: rgba(129, 140, 248, 0.16);
+  --success-text: #16a34a;
+  --warning-text: #d97706;
+  --danger-text: #f87171;
   --overlay-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
   color-scheme: dark;
 }

@@ -4,6 +4,7 @@ export const API_BASE_URL = (
 
 export const HEALTH_PATH = "/api/v1/health";
 export const READY_PATH = "/api/v1/ready";
+export const DIAGNOSTIC_PAPER_PATH = "/api/v1/diagnostics/paper?version=v1";
 
 export const REQUEST_TIMEOUT_MS = 5000;
 export const POLL_INTERVAL_MS = 30000;

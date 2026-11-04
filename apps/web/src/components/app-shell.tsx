@@ -4,17 +4,23 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import type { ComponentType, ReactNode } from "react";
-import { NAV_ITEMS, findNavItem, isActivePath } from "@/lib/navigation";
+import { NAV_GROUPS, findNavItem, isActivePath } from "@/lib/navigation";
+import type { NavItem } from "@/lib/navigation";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { SystemStatusCompact, SystemStatusProvider } from "@/components/system-status";
-import { SoonTag, cx } from "@/components/ui";
+import { cx } from "@/components/ui";
 import {
   IconClose,
+  IconHistory,
+  IconKnowledge,
   IconLearn,
   IconMenu,
   IconPractice,
+  IconProfile,
   IconProgress,
   IconProjects,
+  IconQuiz,
+  IconRoute,
   IconSpark,
   IconToday,
   LogoGlyph,
@@ -26,6 +32,12 @@ const NAV_ICONS: Record<string, ComponentType<{ className?: string }>> = {
   "/practice": IconPractice,
   "/projects": IconProjects,
   "/progress": IconProgress,
+  "/onboarding": IconProfile,
+  "/diagnostic": IconQuiz,
+  "/result": IconProgress,
+  "/plan": IconRoute,
+  "/history": IconHistory,
+  "/knowledge": IconKnowledge,
 };
 
 function Brand({
@@ -50,19 +62,25 @@ function Brand({
           AI Learning Copilot
         </span>
         {compact ? null : (
-          <span className="block truncate text-[11px] text-muted">自学路线 · Sprint 0</span>
+          <span className="block truncate text-[11px] text-muted">自学路线 · v0.1.0</span>
         )}
       </span>
     </Link>
   );
 }
 
-function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
+function NavLinks({
+  items,
+  onNavigate,
+}: {
+  items: NavItem[];
+  onNavigate?: () => void;
+}) {
   const pathname = usePathname();
 
   return (
     <ul className="space-y-0.5">
-      {NAV_ITEMS.map((item) => {
+      {items.map((item) => {
         const Icon = NAV_ICONS[item.href] ?? IconToday;
         const active = isActivePath(pathname, item.href);
         return (
@@ -91,19 +109,34 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
   );
 }
 
-function AiTutorEntry() {
+function NavSections({ onNavigate }: { onNavigate?: () => void }) {
   return (
-    <button
-      type="button"
-      disabled
-      aria-disabled="true"
-      title="AI 导师对话尚未实现"
-      className="flex w-full items-center gap-2.5 rounded-control border border-dashed border-line-strong px-2.5 py-2 text-left text-[13px] text-muted"
+    <div className="space-y-1">
+      {NAV_GROUPS.map((group) => (
+        <div key={group.id}>
+          <p className="px-2.5 pt-4 pb-2 text-[11px] font-medium tracking-wide text-muted">
+            {group.label}
+          </p>
+          <NavLinks items={group.items} onNavigate={onNavigate} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function AiTutorEntry() {
+  // AI 导师没有独立页面：它出现在课程与练习详情页内。这里给出可点的入口与准确说明，
+  // 不再用「开发中」占位（该占位与本轮已上线的面板相矛盾）。
+  return (
+    <Link
+      href="/learn"
+      title="AI 导师在课程与练习详情页内，打开任意课程即可提问"
+      className="flex w-full items-center gap-2.5 rounded-control border border-dashed border-line-strong px-2.5 py-2 text-left text-[13px] text-muted transition-colors hover:text-fg"
     >
       <IconSpark className="size-4" />
       <span className="flex-1 truncate">AI 导师</span>
-      <SoonTag />
-    </button>
+      <span className="rounded-full border border-line px-1.5 py-0.5 text-[10px] text-muted">课程页内</span>
+    </Link>
   );
 }
 
@@ -111,7 +144,7 @@ function SidebarFooter() {
   return (
     <div className="border-t border-line px-3 py-3">
       <SystemStatusCompact />
-      <p className="mt-1.5 px-0.5 text-[11px] text-muted">Sprint 0 · 预览版</p>
+      <p className="mt-1.5 px-0.5 text-[11px] text-muted">v0.1.0 · 首个可用版本</p>
     </div>
   );
 }
@@ -123,10 +156,7 @@ function Sidebar() {
         <Brand />
       </div>
       <div className="flex-1 overflow-y-auto px-2 py-3">
-        <p className="px-2.5 pb-2 text-[11px] font-medium tracking-wide text-muted">
-          主导航
-        </p>
-        <NavLinks />
+        <NavSections />
         <p className="px-2.5 pt-5 pb-2 text-[11px] font-medium tracking-wide text-muted">
           学习空间
         </p>
@@ -205,10 +235,7 @@ function MobileNav({ open, onClose }: { open: boolean; onClose: () => void }) {
           </button>
         </div>
         <div className="flex-1 overflow-y-auto px-2 py-3">
-          <p className="px-2.5 pb-2 text-[11px] font-medium tracking-wide text-muted">
-            主导航
-          </p>
-          <NavLinks onNavigate={onClose} />
+          <NavSections onNavigate={onClose} />
           <p className="px-2.5 pt-5 pb-2 text-[11px] font-medium tracking-wide text-muted">
             学习空间
           </p>
@@ -235,7 +262,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         <footer className="border-t border-line">
           <div className="mx-auto w-full max-w-content px-4 py-4 md:px-8">
             <p className="text-[11px] leading-relaxed text-muted">
-              界面为 Sprint 0 预览版，标注「演示数据」的内容均非真实学习数据；标注「开发中」的入口尚不可用。
+              v0.1.0 为单用户本地版本：标注「演示数据」的内容非真实学习数据；标注「开发中」的入口尚不可用。
             </p>
           </div>
         </footer>
