@@ -79,10 +79,6 @@ export function Tag({
   );
 }
 
-export function DemoTag({ label = "演示数据" }: { label?: string }) {
-  return <Tag>{label}</Tag>;
-}
-
 export function SoonTag({ label = "开发中" }: { label?: string }) {
   return (
     <span className="inline-flex items-center rounded-control border border-dashed border-line-strong px-1.5 py-0.5 text-[11px] leading-4 font-medium whitespace-nowrap text-muted">

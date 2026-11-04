@@ -262,7 +262,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         <footer className="border-t border-line">
           <div className="mx-auto w-full max-w-content px-4 py-4 md:px-8">
             <p className="text-[11px] leading-relaxed text-muted">
-              v0.1.0 为单用户本地版本：标注「演示数据」的内容非真实学习数据；标注「开发中」的入口尚不可用。
+              v0.1.1 为单用户本地版本：页面数值均来自后端真实数据；标注「开发中」的入口尚不可用。
             </p>
           </div>
         </footer>
