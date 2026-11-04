@@ -12,6 +12,7 @@ from app.api.v1.routes import (
     knowledge,
     lessons,
     progress,
+    review,
     skills,
     study_plan,
     users,
@@ -28,3 +29,4 @@ api_router.include_router(exercises.router)
 api_router.include_router(ai.router)
 api_router.include_router(knowledge.router)
 api_router.include_router(progress.router)
+api_router.include_router(review.router)

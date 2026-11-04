@@ -45,11 +45,14 @@ COUNT_USER_PLAN = text("SELECT count(*) FROM study_plan_items WHERE user_id = :u
 COUNT_WEEK_PLAN = text(
     "SELECT count(*) FROM study_plan_items WHERE user_id = :user_id AND week_start = :week_start"
 )
-# Sprint 6 起 exercise 是合法计划项，review 仍是生成器从不写的 kind。
-COUNT_FAKE_KINDS = text(
-    "SELECT count(*) FROM study_plan_items "
-    "WHERE user_id = :user_id AND kind = 'review'"
+# v0.1.2 起 review 也是生成器会写的 kind：计划里的复习行必须对应一条真实到期的
+# 错题（review_items pending 且 next_review_on 落在 [today, week_end]）。
+COUNT_DUE_REVIEWS = text(
+    "SELECT count(*) FROM review_items "
+    "WHERE user_id = :user_id AND status = 'pending' "
+    "AND next_review_on BETWEEN :today AND :week_end"
 )
+SELECT_LOCAL_TODAY = text("SELECT (now() AT TIME ZONE :timezone)::date")
 SELECT_PUBLISHED_LESSON_IDS = text(
     "SELECT id FROM lessons WHERE status = 'published' AND deleted_at IS NULL"
 )
@@ -138,8 +141,8 @@ async def test_06_generated_plan_only_points_at_real_lessons_and_obeys_r1_r2(
         assert body["items_total"] == len(active)
         assert body["expired_items"] == len(rows) - len(active)
 
-        # ⑥ 只调度真实存在的已发布 lesson / exercise；review 仍是生成器不写的 kind
-        assert {row["kind"] for row in active} <= {"lesson", "exercise"}
+        # ⑥ 只调度真实存在的已发布 lesson / exercise；v0.1.2 起 review 也是合法 kind
+        assert {row["kind"] for row in active} <= {"lesson", "exercise", "review"}
         published = set(
             (await db_session.execute(SELECT_PUBLISHED_LESSON_IDS)).scalars().all()
         )
@@ -147,15 +150,36 @@ async def test_06_generated_plan_only_points_at_real_lessons_and_obeys_r1_r2(
             (await db_session.execute(SELECT_PUBLISHED_EXERCISE_IDS)).scalars().all()
         )
         for row in active:
-            if row["kind"] == "exercise":
+            if row["kind"] in ("exercise", "review"):
                 assert int(row["target_id"]) in published_exercises, row["target_id"]
             else:
                 assert int(row["target_id"]) in published, row["target_id"]
-        assert int(
-            (await db_session.execute(COUNT_FAKE_KINDS, {"user_id": user_id})).scalar_one()
-        ) == 0
-        assert body["review_items"] == 0
-        assert body["lesson_items"] + body["exercise_items"] == len(active)
+        review_rows = [row for row in active if row["kind"] == "review"]
+        assert body["review_items"] == len(review_rows)
+        assert (
+            body["lesson_items"] + body["exercise_items"] + body["review_items"]
+            == len(active)
+        )
+        # 复习行的三条硬不变量：15 分钟、每天最多 1 个、只来自真实到期的错题
+        assert all(int(row["planned_minutes"]) == 15 for row in review_rows)
+        assert len({row["plan_date"] for row in review_rows}) == len(review_rows)
+        due_reviews = int(
+            (
+                await db_session.execute(
+                    COUNT_DUE_REVIEWS,
+                    {
+                        "user_id": user_id,
+                        "today": (
+                            await db_session.execute(
+                                SELECT_LOCAL_TODAY, {"timezone": "Asia/Shanghai"}
+                            )
+                        ).scalar_one(),
+                        "week_end": week_start + timedelta(days=6),
+                    },
+                )
+            ).scalar_one()
+        )
+        assert len(review_rows) <= due_reviews
 
         # ⑦ R1：同一 plan_date 的 sum(planned_minutes) <= daily_minutes
         per_date: dict[date, int] = {}
@@ -293,14 +317,23 @@ async def test_07_regeneration_is_idempotent_and_never_rewrites_done_or_skipped(
             assert current["plan_date"] == frozen[item_id]["plan_date"], "跳过不顺延到次日"
 
         # R3：跳过不产生第二条计划行，也不写任何失败记录（mistakes 表不存在）
+        # 按 (kind, target_id) 计数：v0.1.2 起同一道 exercise 可以同时是"新练习"和
+        # "复习"两个不同的计划项，同 kind 同 target 才叫第二条。
         skipped_target = frozen[ids[1]]["target_id"]
+        skipped_kind = frozen[ids[1]]["kind"]
         same_target = (
             await db_session.execute(
                 text(
                     "SELECT count(*) FROM study_plan_items "
-                    "WHERE user_id = :user_id AND week_start = :week_start AND target_id = :target_id"
+                    "WHERE user_id = :user_id AND week_start = :week_start "
+                    "AND kind = :kind AND target_id = :target_id"
                 ),
-                {"user_id": user_id, "week_start": week_start, "target_id": skipped_target},
+                {
+                    "user_id": user_id,
+                    "week_start": week_start,
+                    "kind": skipped_kind,
+                    "target_id": skipped_target,
+                },
             )
         ).scalar_one()
         assert int(same_target) == 1
@@ -592,7 +625,8 @@ async def test_sprint6_01_items_carry_kind_target_title_and_href(
                 assert item["target_href"] == f"/learn/{item['target_id']}"
                 assert item["target_title"] == lesson_titles[int(item["target_id"])]
             else:
-                assert item["kind"] == "exercise", item["kind"]
+                # v0.1.2：复习项指向的同样是那道练习，客户端入口与练习一致
+                assert item["kind"] in ("exercise", "review"), item["kind"]
                 assert int(item["target_id"]) in published_exercises
                 assert item["target_href"] == f"/practice/{item['target_id']}"
                 assert item["target_title"] == exercise_titles[int(item["target_id"])]
@@ -600,7 +634,7 @@ async def test_sprint6_01_items_carry_kind_target_title_and_href(
             1 for item in items if item["kind"] == "exercise"
         )
         assert body["exercise_items"] >= 1, "Sprint 6 起当天的计划必须能排到练习"
-        assert body["review_items"] == 0, "review 仍是生成器不写的 kind"
+        assert body["review_items"] == sum(1 for item in items if item["kind"] == "review")
 
         for day in body["days"]:
             if not day["items"]:
@@ -793,11 +827,19 @@ async def test_sprint6_05_non_study_day_and_past_date_get_no_rows(
         assert all(row["plan_date"].isoweekday() in {2, 4} for row in scheduled)
         assert all(row["plan_date"] >= wednesday for row in scheduled), "不得排到已过去的日期"
         assert not [row for row in scheduled if row["plan_date"] == tuesday]
+        # 练习与复习（v0.1.2 起的第三种 kind）都只能落在周四这个学习日
         exercises = [row for row in scheduled if row["kind"] == "exercise"]
-        assert exercises and all(row["plan_date"] == thursday for row in exercises)
+        reviews = [row for row in scheduled if row["kind"] == "review"]
+        assert all(row["plan_date"] == thursday for row in exercises + reviews)
+        # 新顺序下复习优先占位：周三的 15 分钟余量可能被到期复习用掉，此时不排新练习；
+        # 没有复习占位时，周四必须照旧排到练习。
+        assert exercises or reviews, "周四至少排到练习或复习"
+        if not reviews:
+            assert exercises, "没有复习占位时必须排到练习"
         print(
             f"today={wednesday} 非学习日/过去日期 scheduled=0 "
-            f"exercise_dates={sorted({str(row['plan_date']) for row in exercises})}"
+            f"exercise_dates={sorted({str(row['plan_date']) for row in exercises})} "
+            f"review_dates={sorted({str(row['plan_date']) for row in reviews})}"
         )
     finally:
         await _restore(db_session, baseline)

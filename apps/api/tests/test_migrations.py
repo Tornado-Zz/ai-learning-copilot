@@ -19,12 +19,13 @@ pytestmark = pytest.mark.integration
 API_DIR = Path(__file__).resolve().parents[1]
 SPRINT1_REVISION = "0002_sprint1a_identity_diagnostics"
 REVISION = "0003_sprint2_lessons_and_plan"
-# S3 阶段 B 追加 0004、Sprint 4 追加 0005、Sprint 5 追加 0006、Sprint 6 追加 0007
-# 后 head 变成 0007；0002 -> 0003 -> 0004 -> 0005 -> 0006 仍然是链上的一环。
+# S3 阶段 B 追加 0004、Sprint 4 追加 0005、Sprint 5 追加 0006、Sprint 6 追加 0007、
+# v0.1.2 追加 0008 后 head 变成 0008；0002 -> ... -> 0007 仍然是链上的一环。
 SPRINT3_REVISION = "0004_sprint3_exercises"
 SPRINT4_REVISION = "0005_sprint4_ai_interactions"
 SPRINT5_REVISION = "0006_sprint5_knowledge"
-HEAD_REVISION = "0007_sprint6_plan_exercise_targets"
+SPRINT6_REVISION = "0007_sprint6_plan_exercise_targets"
+HEAD_REVISION = "0008_review_items"
 SPRINT2_TABLES = {"lessons", "learning_progress", "study_plan_items"}
 SPRINT3_TABLES = {"exercises", "submissions"}
 
@@ -149,7 +150,8 @@ async def test_01_alembic_upgrade_head_succeeds_and_reports_head(database_url: s
     assert f"{REVISION} -> {SPRINT3_REVISION}" in history.stdout
     assert f"{SPRINT3_REVISION} -> {SPRINT4_REVISION}" in history.stdout
     assert f"{SPRINT4_REVISION} -> {SPRINT5_REVISION}" in history.stdout
-    assert f"{SPRINT5_REVISION} -> {HEAD_REVISION}" in history.stdout
+    assert f"{SPRINT5_REVISION} -> {SPRINT6_REVISION}" in history.stdout
+    assert f"{SPRINT6_REVISION} -> {HEAD_REVISION}" in history.stdout
     current = subprocess.run(
         [sys.executable, "-m", "alembic", "current"],
         cwd=API_DIR,
@@ -318,3 +320,141 @@ async def test_03b_seeded_identity_rows_exist_for_single_user_mode(
     assert 15 <= profile["daily_minutes"] <= 480
     # 生成列恒等式：周容量恒为 学习日数 × 每日分钟
     assert profile["weekly_minutes"] == len(profile["study_days"]) * profile["daily_minutes"]
+
+
+# ---------------------------------------------------------------------------
+# v0.1.2: 0008_review_items - 一张表，既有 13 张产品表一行不动
+# ---------------------------------------------------------------------------
+# 0007 之后存在的全部产品表（alembic_version 由库自己维护，不计入产品表）。
+EXISTING_TABLES = (
+    "users",
+    "user_profiles",
+    "skills",
+    "diagnostic_attempts",
+    "user_skill_levels",
+    "lessons",
+    "learning_progress",
+    "study_plan_items",
+    "exercises",
+    "submissions",
+    "ai_interactions",
+    "knowledge_sources",
+    "knowledge_chunks",
+)
+REVIEW_COLUMNS = {
+    "id",
+    "user_id",
+    "exercise_id",
+    "source_submission_id",
+    "streak",
+    "interval_days",
+    "next_review_on",
+    "last_result",
+    "last_reviewed_at",
+    "status",
+    "created_at",
+    "updated_at",
+}
+REVIEW_NULLABLE = {"source_submission_id", "last_result", "last_reviewed_at"}
+
+
+async def test_04_review_items_has_the_frozen_structure(db_session: AsyncSession) -> None:
+    columns = {
+        row["column_name"]: row["is_nullable"]
+        for row in (
+            await db_session.execute(
+                text(
+                    "SELECT column_name, is_nullable FROM information_schema.columns "
+                    "WHERE table_schema = 'public' AND table_name = 'review_items'"
+                )
+            )
+        ).mappings()
+    }
+    assert set(columns) == REVIEW_COLUMNS
+    assert {name for name, nullable in columns.items() if nullable == "YES"} == REVIEW_NULLABLE
+
+    constraints = {
+        row["conname"]: row["contype"]
+        for row in (
+            await db_session.execute(
+                text(
+                    "SELECT c.conname, c.contype::text AS contype FROM pg_constraint c "
+                    "JOIN pg_class t ON t.oid = c.conrelid "
+                    "JOIN pg_namespace n ON n.oid = t.relnamespace "
+                    "WHERE n.nspname = 'public' AND t.relname = 'review_items'"
+                )
+            )
+        ).mappings()
+    }
+    checks = {name for name, kind in constraints.items() if kind == "c"}
+    assert {
+        "ck_review_items_streak",
+        "ck_review_items_interval_days",
+        "ck_review_items_last_result",
+        "ck_review_items_status",
+    } <= checks
+    # (user_id, exercise_id) 唯一：答错是 upsert，答对是在同一行上推进。
+    unique_columns = (
+        await db_session.execute(
+            text(
+                "SELECT array_agg(a.attname ORDER BY a.attname) AS columns "
+                "FROM pg_constraint c "
+                "JOIN pg_class t ON t.oid = c.conrelid "
+                "JOIN unnest(c.conkey) AS k(attnum) ON true "
+                "JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum = k.attnum "
+                "WHERE c.conname = 'uq_review_items_user_exercise'"
+            )
+        )
+    ).scalar_one()
+    assert sorted(unique_columns) == ["exercise_id", "user_id"]
+
+    indexes = set(
+        (
+            await db_session.execute(
+                text(
+                    "SELECT indexname FROM pg_indexes "
+                    "WHERE schemaname = 'public' AND tablename = 'review_items'"
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    assert "ix_review_items_user_next_review" in indexes
+
+    # 三个外键的删除动作也是冻结口径：用户级联、题目 RESTRICT、来源提交 SET NULL。
+    delete_actions = {
+        row["column"]: row["confdeltype"]
+        for row in (
+            await db_session.execute(
+                text(
+                    "SELECT a.attname AS column, c.confdeltype::text AS confdeltype "
+                    "FROM pg_constraint c "
+                    "JOIN pg_class t ON t.oid = c.conrelid "
+                    "JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum = c.conkey[1] "
+                    "WHERE c.contype = 'f' AND t.relname = 'review_items'"
+                )
+            )
+        ).mappings()
+    }
+    assert delete_actions == {
+        "user_id": "c",
+        "exercise_id": "r",
+        "source_submission_id": "n",
+    }
+
+
+async def test_05_upgrade_0008_keeps_every_existing_row(migration_probe) -> None:
+    """0007 -> 0008 只多一张空表：既有 13 张产品表逐表行数相等。"""
+    async with migration_probe() as probe:
+        probe.upgrade(SPRINT6_REVISION)
+        await probe.insert_sentinels(EXISTING_TABLES)
+        before = await probe.counts(EXISTING_TABLES)
+        assert before["users"] >= 1 and before["lessons"] >= 1 and before["exercises"] >= 1
+
+        probe.upgrade(HEAD_REVISION)
+
+        after = await probe.counts(EXISTING_TABLES)
+        assert after == before, {table: (before[table], after[table]) for table in before}
+        assert await probe.counts(("review_items",)) == {"review_items": 0}
+

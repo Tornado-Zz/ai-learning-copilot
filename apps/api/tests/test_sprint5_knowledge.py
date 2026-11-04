@@ -37,7 +37,7 @@ API_DIR = Path(__file__).resolve().parents[1]
 HEAD_REVISION = "0006_sprint5_knowledge"
 PREVIOUS_REVISION = "0005_sprint4_ai_interactions"
 # Sprint 6 追加 0007 后 head 再前移一位：0006 仍是链上的一环，但不再是 head。
-CURRENT_HEAD = "0007_sprint6_plan_exercise_targets"
+CURRENT_HEAD = "0008_review_items"
 
 NOW = datetime(2026, 4, 1, 12, 0, tzinfo=timezone.utc)
 

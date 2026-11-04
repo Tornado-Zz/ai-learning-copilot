@@ -25,7 +25,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import CONFLICT, NOT_FOUND, ApiError, validation_error
 from app.schemas.exercises import SubmissionCreateRequest
-from app.services import judging
+from app.services import judging, review
 
 # The latest submission per exercise plus how many of them passed: both are
 # scoped to the calling user, so one learner never sees another's history.
@@ -312,6 +312,10 @@ async def create_submission(
     verification_method and is_passed are the only evidence columns written, and
     verification_strength is derived by the generated column in the database, so
     the response can quote what was really recorded.
+
+    v0.1.2: 判题结论同时驱动错题本，且与提交行共用同一个事务（下面那次 commit 之前
+    调用），所以"提交成功但复习计划没动"或"复习计划动了但提交没落库"都不会发生。
+    判题逻辑本身（app.services.judging）不因这次接入改动一行。
     """
     if not payload.code_text.strip():
         raise validation_error("code_text 不能为空", "code_text", "empty")
@@ -347,6 +351,15 @@ async def create_submission(
         )
         if row is None:
             raise ApiError(404, NOT_FOUND, "练习不存在或未发布")
+        # 答错建/重置、答对推进，无复习行时什么都不做；这里不 commit，
+        # 与提交行一起在下面那次 commit 落库。
+        await review.schedule_after_submission(
+            session,
+            user_id=user_id,
+            exercise_id=exercise_id,
+            submission_id=int(row["id"]),
+            is_passed=None if row["is_passed"] is None else bool(row["is_passed"]),
+        )
         await session.commit()
     except IntegrityError as exc:
         # uq_submissions_user_exercise_attempt fired: a concurrent submission

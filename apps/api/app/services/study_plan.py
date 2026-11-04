@@ -23,7 +23,17 @@ Rules R1-R6 of the Sprint 2 contract are enforced here:
   day's remaining minutes;
 * R11 (Sprint 6) target_id points at a row that really exists - lessons for
   kind='lesson', exercises for kind='exercise' - checked twice: here before the
-  write (ensure_targets_exist) and by the fn_spi_lesson_target_exists trigger.
+  write (ensure_targets_exist) and by the fn_spi_lesson_target_exists trigger;
+  kind='review' also points at a real exercise, checked here (the 0003/0007
+  trigger does not know that kind and is deliberately left alone).
+* R12 (v0.1.2) reviews are a pass of their own, after lessons and BEFORE new
+  exercises: a due review outranks a brand new exercise, because re-testing a
+  question the learner got wrong is worth more than adding another one, and it
+  never displaces a lesson. A review row is placed only when the day still has
+  >= 15 minutes left (R8) and a review_items row is pending with next_review_on
+  inside [today_local, week_end]; a day carries at most one review, an exercise is
+  never planned twice in a week, and a row already planned this week is re-emitted
+  (same values) so a regeneration neither retires nor duplicates it.
 """
 
 from __future__ import annotations
@@ -49,6 +59,7 @@ SELECT_LOCAL_TODAY = text("SELECT (now() AT TIME ZONE :timezone)::date")
 
 PLAN_KIND_LESSON = "lesson"
 PLAN_KIND_EXERCISE = "exercise"
+PLAN_KIND_REVIEW = "review"
 PLAN_STATUS_SCHEDULED = "scheduled"
 PLAN_STATUS_EXPIRED = "expired"
 PLAN_STATUS_DONE = "done"
@@ -58,8 +69,8 @@ PLAN_STATUS_TERMINAL = (PLAN_STATUS_DONE, PLAN_STATUS_SKIPPED)
 # Only these two transitions are open to the learner (PATCH /study-plan/items/{id}).
 PLAN_STATUS_USER_SETTABLE = ("done", "skipped")
 # AC-S2-01: a day carries 0-3 lesson items. Since Sprint 6 the same day also
-# carries its exercises, capped separately by R10 - 'review' rows the generator
-# still never writes.
+# carries its exercises (R10) and since v0.1.2 its review row (R12), each capped
+# separately: this number stays a lesson cap.
 MAX_ITEMS_PER_DAY = 3
 # R10: the daily exercise cap is the learner's own level, never a guess. The six
 # domain levels are averaged: <= 1 -> 1 exercise a day, >= 2 -> 2. An average
@@ -69,6 +80,10 @@ MAX_EXERCISES_PER_DAY_HIGH = 2
 EXERCISE_CAP_LEVEL_THRESHOLD = 2
 MIN_PLANNED_MINUTES = 15
 MAX_PLANNED_MINUTES = 480
+# R12: a review row always reserves the table's minimum, and one day carries at
+# most one review - the mistake book is practice, not a second lesson.
+REVIEW_PLANNED_MINUTES = MIN_PLANNED_MINUTES
+MAX_REVIEWS_PER_DAY = 1
 RATIONALE_MAX_LENGTH = 200
 WEEK_LENGTH_DAYS = 7
 
@@ -80,7 +95,7 @@ SELECT_WEEK_PLAN = text(
            e.title AS exercise_title
     FROM study_plan_items s
     LEFT JOIN lessons l ON s.kind = 'lesson' AND l.id = s.target_id
-    LEFT JOIN exercises e ON s.kind = 'exercise' AND e.id = s.target_id
+    LEFT JOIN exercises e ON s.kind IN ('exercise', 'review') AND e.id = s.target_id
     WHERE s.user_id = :user_id AND s.week_start = :week_start
     ORDER BY s.plan_date, s.id
     """
@@ -200,6 +215,42 @@ SELECT_SCHEDULEABLE_EXERCISES = text(
     """
 )
 
+# R12: the mistake book rows that come due inside this week window. Ordered like
+# the review API (next_review_on, id) so a regeneration picks the same rows in the
+# same order; an exercise that is no longer published is not scheduled.
+SELECT_DUE_REVIEWS = text(
+    """
+    SELECT r.id AS review_item_id, r.exercise_id, r.next_review_on,
+           r.streak, r.interval_days, e.title AS exercise_title,
+           sk.code AS skill_code
+    FROM review_items r
+    JOIN exercises e ON e.id = r.exercise_id
+    LEFT JOIN lessons l ON l.id = e.lesson_id
+    LEFT JOIN skills sk ON sk.id = l.skill_id
+    WHERE r.user_id = :user_id
+      AND r.status = 'pending'
+      AND r.next_review_on BETWEEN :today AND :week_end
+      AND e.status = 'published' AND e.deleted_at IS NULL
+    ORDER BY r.next_review_on, r.id
+    """
+)
+
+# R12: what this week already carries: a day holding a review row is full (the cap
+# is one), and an exercise already planned this week is never planned twice.
+SELECT_WEEK_REVIEWS = text(
+    """
+    SELECT s.plan_date, s.target_id, s.planned_minutes,
+           e.title AS exercise_title, sk.code AS skill_code
+    FROM study_plan_items s
+    LEFT JOIN exercises e ON e.id = s.target_id
+    LEFT JOIN lessons l ON l.id = e.lesson_id
+    LEFT JOIN skills sk ON sk.id = l.skill_id
+    WHERE s.user_id = :user_id AND s.week_start = :week_start
+      AND s.kind = 'review' AND s.status <> 'expired'
+    ORDER BY s.plan_date, s.id
+    """
+)
+
 # R11: the service-side half of the target check. The trigger is the database's
 # half; this one refuses the batch before a single row is written.
 TARGET_EXISTS_SQL = {
@@ -207,6 +258,12 @@ TARGET_EXISTS_SQL = {
         bindparam("ids", type_=ARRAY(BigInteger))
     ),
     PLAN_KIND_EXERCISE: text("SELECT id FROM exercises WHERE id = ANY(:ids)").bindparams(
+        bindparam("ids", type_=ARRAY(BigInteger))
+    ),
+    # R12: a review row's target is an exercise as well. The trigger from 0007
+    # only validates lesson/exercise, so this check is the review kind's only
+    # guard - it runs before the batch is written, exactly like the other two.
+    PLAN_KIND_REVIEW: text("SELECT id FROM exercises WHERE id = ANY(:ids)").bindparams(
         bindparam("ids", type_=ARRAY(BigInteger))
     ),
 }
@@ -370,6 +427,38 @@ async def _settled_exercise_days(
     return {row["plan_date"]: int(row["items"]) for row in rows}
 
 
+async def _due_reviews(
+    session: AsyncSession, user_id: int, today: date, week_end: date
+) -> list[dict[str, object]]:
+    """R12 candidates: pending mistake-book rows due inside [today, week_end]."""
+    rows = (
+        (await session.execute(
+            SELECT_DUE_REVIEWS, {"user_id": user_id, "today": today, "week_end": week_end}
+        ))
+        .mappings()
+        .all()
+    )
+    return [dict(row) for row in rows]
+
+
+async def _week_reviews(
+    session: AsyncSession, user_id: int, monday: date
+) -> list[dict[str, object]]:
+    """This week's still-open review rows, in plan order.
+
+    They are re-emitted by the review pass (not merely remembered): a regeneration
+    has to keep their dedupe_key in this run's keep set, otherwise EXPIRE_STALE_ITEMS
+    would retire a review the learner still owes and the next run would plan it
+    again on another day - the plan would oscillate between two states.
+    """
+    rows = (
+        (await session.execute(SELECT_WEEK_REVIEWS, {"user_id": user_id, "week_start": monday}))
+        .mappings()
+        .all()
+    )
+    return [dict(row) for row in rows]
+
+
 async def scheduleable_exercises(
     session: AsyncSession, user_id: int
 ) -> list[dict[str, object]]:
@@ -427,7 +516,7 @@ async def ensure_targets_exist(
         statement = TARGET_EXISTS_SQL.get(kind)
         if statement is None:
             raise validation_error(
-                f"计划项的 kind 只能是 lesson 或 exercise：{kind}",
+                f"计划项的 kind 只能是 lesson、exercise 或 review：{kind}",
                 "kind",
                 "unsupported_kind",
                 kind=kind,
@@ -667,6 +756,8 @@ def _schedule_exercises(
 ) -> list[dict[str, object]]:
     """R10: one exercise per lesson already placed that day, inside its budget.
 
+    The list also carries the review rows of R12: they spend the day's minutes but
+    take no lesson slot, so they only ever shrink what is left for a new exercise.
     The lesson pass runs first and is untouched, so an exercise never displaces a
     lesson. For every lesson placed on a day the generator takes that lesson's
     unfinished exercise with the smallest order_index and adds it only when all
@@ -680,8 +771,13 @@ def _schedule_exercises(
     day is charged the reserved value - the budget can only shrink, never grow.
     """
     by_date: dict[date, list[dict[str, object]]] = {}
+    used_by_date: dict[date, int] = {}
     for item in lesson_items:
-        by_date.setdefault(item["plan_date"], []).append(item)  # type: ignore[arg-type]
+        item_date = item["plan_date"]
+        used_by_date[item_date] = used_by_date.get(item_date, 0) + int(item["planned_minutes"])
+        # R12: 复习行也在这份列表里，但它只花分钟，不占"一节课一个练习"的槽位。
+        if item["kind"] == PLAN_KIND_LESSON:
+            by_date.setdefault(item_date, []).append(item)  # type: ignore[arg-type]
     planned_ids: set[int] = set()
     items: list[dict[str, object]] = []
     for plan_date in dates:
@@ -689,7 +785,7 @@ def _schedule_exercises(
         if not lessons:
             continue
         history_minutes, _history_items = settled.get(plan_date, (0, 0))
-        used = sum(int(lesson["planned_minutes"]) for lesson in lessons)
+        used = used_by_date.get(plan_date, 0)
         placed = settled_exercise_days.get(plan_date, 0)
         for lesson in lessons:
             if placed >= daily_cap:
@@ -739,6 +835,136 @@ def _schedule_exercises(
     return items
 
 
+def _review_rationale(
+    plan_date: date,
+    daily_minutes: int,
+    used_minutes: int,
+    exercise_title: object,
+    level_label: str,
+    detail: str | None = None,
+) -> str:
+    """R5 for a review row: the day's budget and the level, plus the due-day detail.
+
+    detail is present for a row planned in this run (original due day, streak,
+    interval) and absent for one re-emitted from the week - the level and the
+    budget are on every row either way, so R5 holds for both.
+    """
+    assert_detail = f"（{detail}）" if detail else ""
+    return (
+        f"{plan_date.isoformat()} 当日可用 {daily_minutes} 分钟（已排 {used_minutes} 分钟）-> "
+        f"复习错题《{exercise_title}》{REVIEW_PLANNED_MINUTES} 分钟{assert_detail}，"
+        f"{level_label}，每日复习上限 {MAX_REVIEWS_PER_DAY}"
+    )[:RATIONALE_MAX_LENGTH]
+
+
+def _schedule_reviews(
+    placed_items: list[dict[str, object]],
+    dates: list[date],
+    daily_minutes: int,
+    level_labels: dict[str, str],
+    monday: date,
+    settled: dict[date, tuple[int, int]],
+    candidates: list[dict[str, object]],
+    existing_rows: list[dict[str, object]],
+) -> list[dict[str, object]]:
+    """R12: one review a day, only with 15 minutes left, never the same exercise twice.
+
+    The pass runs after lessons (R10) but **before** new exercises: a due review
+    outranks a brand new exercise for the same slot, because re-testing a question
+    the learner already got wrong is worth more than adding another one. It still
+    never displaces a lesson, and the day's budget (R1/R8) always wins over a
+    review: a row that no longer fits is not re-emitted and is retired as expired.
+
+    A review row already planned this week is re-emitted with the same values, so
+    its dedupe_key stays in this run's keep set (otherwise EXPIRE_STALE_ITEMS would
+    retire a review the learner still owes and the plan would oscillate). Its day
+    then counts as taken (MAX_REVIEWS_PER_DAY is one) and its exercise as used.
+    """
+    used_by_date: dict[date, int] = {}
+    for item in placed_items:
+        item_date = item["plan_date"]
+        used_by_date[item_date] = used_by_date.get(item_date, 0) + int(item["planned_minutes"])
+    items: list[dict[str, object]] = []
+    review_days: set[date] = set()
+    taken: set[int] = set()
+    for row in existing_rows:
+        plan_date = row["plan_date"]
+        if plan_date not in dates or row["exercise_title"] is None:
+            # R7/R2: 已过去的日期、非学习日或目标已不可读的行不再保留；它的 key 不在
+            # keep_keys 里，EXPIRE_STALE_ITEMS 会把它作废（作废不是删除）。
+            continue
+        history_minutes = settled.get(plan_date, (0, 0))[0]
+        used = used_by_date.get(plan_date, 0) + sum(
+            int(item["planned_minutes"]) for item in items if item["plan_date"] == plan_date
+        )
+        if daily_minutes - history_minutes - used < int(row["planned_minutes"]):
+            # R1 高于复习：额度变小（或课程变多）时这次不再保留这一行，按"到期且放得下"
+            # 重新找日子；否则当日总分钟会超支。
+            continue
+        items.append(
+            {
+                "week_start": monday,
+                "plan_date": plan_date,
+                "kind": PLAN_KIND_REVIEW,
+                "target_id": int(row["target_id"]),
+                "planned_minutes": int(row["planned_minutes"]),
+                "rationale": _review_rationale(
+                    plan_date,
+                    daily_minutes,
+                    history_minutes + used,
+                    row["exercise_title"],
+                    level_labels.get(str(row["skill_code"]), "L0（尚未评估）"),
+                ),
+                "dedupe_key": _dedupe_key(
+                    monday, plan_date, PLAN_KIND_REVIEW, int(row["target_id"])
+                ),
+            }
+        )
+        review_days.add(plan_date)
+        taken.add(int(row["target_id"]))
+
+    cursor = 0
+    for plan_date in dates:
+        if plan_date in review_days:
+            continue
+        while cursor < len(candidates) and int(candidates[cursor]["exercise_id"]) in taken:
+            cursor += 1
+        if cursor >= len(candidates):
+            break
+        history_minutes = settled.get(plan_date, (0, 0))[0]
+        used = used_by_date.get(plan_date, 0)
+        if daily_minutes - history_minutes - used < REVIEW_PLANNED_MINUTES:
+            # R8 again: the day's minutes are already spent by lessons.
+            continue
+        review = candidates[cursor]
+        items.append(
+            {
+                "week_start": monday,
+                "plan_date": plan_date,
+                "kind": PLAN_KIND_REVIEW,
+                "target_id": int(review["exercise_id"]),
+                "planned_minutes": REVIEW_PLANNED_MINUTES,
+                "rationale": _review_rationale(
+                    plan_date,
+                    daily_minutes,
+                    history_minutes + used,
+                    review["exercise_title"],
+                    level_labels.get(str(review["skill_code"]), "L0（尚未评估）"),
+                    (
+                        f"原定复习日 {review['next_review_on'].isoformat()}，"
+                        f"连续通过 {review['streak']} 次，当前间隔 {review['interval_days']} 天"
+                    ),
+                ),
+                "dedupe_key": _dedupe_key(
+                    monday, plan_date, PLAN_KIND_REVIEW, int(review["exercise_id"])
+                ),
+            }
+        )
+        taken.add(int(review["exercise_id"]))
+        cursor += 1
+    return items
+
+
 def _day_payload(plan_date: date, day_items: list[dict[str, object]]) -> dict[str, object]:
     """One day of the plan, with what is left to do kept apart from history.
 
@@ -780,7 +1006,8 @@ def _target_fields(
     """
     if kind == PLAN_KIND_LESSON:
         return {"target_title": lesson_title, "target_href": f"/learn/{target_id}"}
-    if kind == PLAN_KIND_EXERCISE:
+    if kind in (PLAN_KIND_EXERCISE, PLAN_KIND_REVIEW):
+        # 一条复习项指向的就是那道练习：客户端的入口与练习一致。
         return {"target_title": exercise_title, "target_href": f"/practice/{target_id}"}
     return {"target_title": None, "target_href": None}
 
@@ -919,8 +1146,24 @@ async def generate_plan(
         candidates, dates, daily_minutes, level_labels, monday, settled
     )
 
-    # R10: exercises are a second pass over the same days, so a lesson is never
-    # displaced. The cap comes from the learner's own six domain levels.
+    # R12 必须排在 R10 之前：复习优先于新练习。
+    # 曾经的顺序（课程 -> 练习 -> 复习）实测导致 review 恒为 0：每天 30 分钟课
+    # 加 15 分钟练习正好等于 45 分钟额度，复习永远抢不到余量。而「把答错的题
+    # 过几天再考一次」对新手的价值高于再做一道新题，所以先排复习、再由新练习占剩余额度。
+    week_end = monday + timedelta(days=WEEK_LENGTH_DAYS - 1)
+    items += _schedule_reviews(
+        items,
+        dates,
+        daily_minutes,
+        level_labels,
+        monday,
+        settled,
+        await _due_reviews(session, user_id, today, week_end),
+        await _week_reviews(session, user_id, monday),
+    )
+
+    # R10: exercises are the second pass over the same days, so a lesson (and now a
+    # due review) is never displaced. The cap comes from the learner's own levels.
     daily_exercise_cap = exercise_cap_for_levels(
         [int(row["level"]) for row in resolved]
     )
@@ -996,7 +1239,7 @@ async def _target_label(
             .mappings()
             .first()
         )
-    elif kind == PLAN_KIND_EXERCISE:
+    elif kind in (PLAN_KIND_EXERCISE, PLAN_KIND_REVIEW):
         row = (
             (await session.execute(SELECT_EXERCISE_TITLE, {"target_id": target_id}))
             .mappings()
