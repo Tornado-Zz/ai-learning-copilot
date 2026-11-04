@@ -30,6 +30,11 @@ function Step($name, [scriptblock]$run) {
   }
 }
 
+Write-Host '=== docs ===' -ForegroundColor Cyan
+Push-Location $root
+Step 'docs consistency' { node scripts/docs-consistency-check.mjs | Out-Null }
+Pop-Location
+
 Write-Host '=== job: api ===' -ForegroundColor Cyan
 Push-Location (Join-Path $root 'apps/api')
 Step 'uv sync --locked' { uv sync --locked | Out-Null }

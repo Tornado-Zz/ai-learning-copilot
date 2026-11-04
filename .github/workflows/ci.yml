@@ -95,6 +95,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # 文档里写的端点数 / 表数 / 迁移 head / 页面数必须与源码一致。
+      # 放这里是因为它只需要 Node，不需要数据库；脚本本身不断言运行中的服务。
+      - name: Docs consistency
+        working-directory: .
+        run: node scripts/docs-consistency-check.mjs
+
       - name: Setup Node.js 22
         uses: actions/setup-node@v4
         with:
