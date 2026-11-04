@@ -80,6 +80,8 @@ export type AttemptQuestion = {
   yourChoice: string | null;
   correctChoice: string | null;
   isCorrect: boolean | null;
+  // 提交后的批次明细才会带解析（发卷接口不带，避免泄题）；缺失时页面不显示这一块。
+  explanation: string | null;
 };
 
 export type AttemptDetail = {
@@ -419,6 +421,8 @@ function parseAttemptQuestion(value: unknown, fallbackNumber: number): AttemptQu
     yourChoice,
     correctChoice,
     isCorrect,
+    // 后端此前恒为 null；v0.1.15 起有内容。空串也按"没有解析"处理。
+    explanation: (readString(record, ["explanation"]) ?? "").trim() || null,
   };
 }
 

@@ -93,6 +93,14 @@ function QuestionRow({ question }: { question: AttemptQuestion }) {
           <dd className="mt-0.5 font-mono text-[12px] text-fg">{choiceLabel(question.correctChoice)}</dd>
         </div>
       </dl>
+      {question.explanation !== null ? (
+        <div className="mt-2 rounded-control border-l-2 border-accent bg-surface px-3 py-2">
+          <p className="text-[11px] font-medium text-muted">解析</p>
+          <p className="mt-0.5 whitespace-pre-wrap break-words text-[12px] leading-relaxed text-fg">
+            {question.explanation}
+          </p>
+        </div>
+      ) : null}
     </li>
   );
 }

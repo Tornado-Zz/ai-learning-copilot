@@ -94,7 +94,8 @@ async def test_detail_returns_per_question_verdicts_from_the_live_question_set(
         assert served["correct"] == source.answer
         assert served["selected"] == source.answer
         assert served["is_correct"] is True
-        assert served["explanation"] is None
+        # 解析也来自题库：本轮起不再恒为 null，且必须与题库逐字一致
+        assert served["explanation"] == source.explanation
     # 三种题型都真实出现在 20 题里（前端不再显示"题型未提供"）
     assert {question["type"] for question in questions} == {
         "single_choice",

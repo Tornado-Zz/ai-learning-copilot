@@ -435,7 +435,8 @@ async def attempt_detail(
             "selected": selected.get(question.id),
             "correct": question.answer,
             "is_correct": selected.get(question.id) == question.answer,
-            "explanation": None,
+            # 解析来自题库，与 correct 同源，因此不会和题面版本漂移。
+            "explanation": question.explanation,
         }
         for order, question in enumerate(QUESTIONS_V1, start=1)
     ]

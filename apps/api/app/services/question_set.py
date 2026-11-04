@@ -42,6 +42,8 @@ class Question:
     prompt: str
     options: dict[str, str]
     answer: str
+    # 逐题解析：只在批次明细出现，发卷视图（paper_questions）不投影该字段。
+    explanation: str
 
 
 QUESTIONS_V1: tuple[Question, ...] = (
@@ -57,6 +59,9 @@ QUESTIONS_V1: tuple[Question, ...] = (
             "D": "[1, 2, 3]",
         },
         answer="B",
+        explanation=(
+            "切片是左闭右开：起始索引 1 保留，结束索引 3 不包含，所以结果是 [2, 3]。错选 C 的人把右边界当成包含，这是最常见的切片偏差。"
+        ),
     ),
     Question(
         id="q02",
@@ -65,6 +70,9 @@ QUESTIONS_V1: tuple[Question, ...] = (
         prompt="d = {'a': 1}，执行 d.get('b', 0) 的结果是什么？",
         options={"A": "抛出 KeyError", "B": "None", "C": "0", "D": "'b'"},
         answer="C",
+        explanation=(
+            "get 的第二个参数是默认值，键不存在时直接返回它而不是报错，这正是 get 与下标取值的关键区别。选 A 的人混淆了 d['b'] 会抛 KeyError。"
+        ),
     ),
     Question(
         id="q03",
@@ -78,6 +86,9 @@ QUESTIONS_V1: tuple[Question, ...] = (
             "D": "Python 会拒绝执行这段代码",
         },
         answer="A",
+        explanation=(
+            "不 close() 时 Python 的写缓冲可能还没刷到磁盘，进程正常退出只是碰巧兜底，异常退出就会丢数据。选 B 的人高估了后果，泄漏的是数据而非必然崩溃。"
+        ),
     ),
     Question(
         id="q04",
@@ -91,6 +102,9 @@ QUESTIONS_V1: tuple[Question, ...] = (
             "D": "离开代码块时自动关闭文件",
         },
         answer="D",
+        explanation=(
+            "with 走上下文管理器协议，离开代码块（含异常）就自动调用 __exit__ 关文件。错选 A 的人误读模式：'r' 不会创建文件。"
+        ),
     ),
     Question(
         id="q05",
@@ -99,6 +113,9 @@ QUESTIONS_V1: tuple[Question, ...] = (
         prompt="阅读代码：\ndef add(a, b=2):\n    return a + b\n\nprint(add(3))\n输出是什么？",
         options={"A": "3", "B": "5", "C": "报错", "D": "None"},
         answer="B",
+        explanation=(
+            "b 有默认值 2，只传 a=3 时 b 取缺省，返回 3+2=5；缺省参数在调用时才绑定。选 C 的人以为少传参数必然报错，忽略了带默认值的形参可以省略。"
+        ),
     ),
     Question(
         id="q06",
@@ -107,6 +124,9 @@ QUESTIONS_V1: tuple[Question, ...] = (
         prompt="阅读代码：\ntotal = 0\nfor i in range(5):\n    if i == 3:\n        break\n    total += i\nprint(total)\n输出是什么？",
         options={"A": "10", "B": "6", "C": "3", "D": "7"},
         answer="C",
+        explanation=(
+            "i 取 0、1、2，到 3 时 break 直接跳出，4 不再累加，故 total=3。选 B 的人把 break 当 continue，多算了 3。"
+        ),
     ),
     Question(
         id="q07",
@@ -120,6 +140,9 @@ QUESTIONS_V1: tuple[Question, ...] = (
             "D": "文件名写错了",
         },
         answer="A",
+        explanation=(
+            "报错点名 NoneType，说明按下标的对象本身是 None，常见于函数忘写 return 或查库为空。选 B 的人把缩进问题当成运行时错误的原因。"
+        ),
     ),
     Question(
         id="q08",
@@ -128,6 +151,9 @@ QUESTIONS_V1: tuple[Question, ...] = (
         prompt="阅读代码：\ndef outer():\n    count = 0\n    def inner():\n        count += 1\n        return count\n    return inner()\n\nprint(outer())\n运行结果是：",
         options={"A": "1", "B": "0", "C": "UnboundLocalError", "D": "None"},
         answer="C",
+        explanation=(
+            "inner 里对 count 有赋值，Python 就视为局部变量，未赋值先 += 只能抛 UnboundLocalError。选 A 的人漏了作用域规则。"
+        ),
     ),
     Question(
         id="q09",
@@ -141,6 +167,9 @@ QUESTIONS_V1: tuple[Question, ...] = (
             "D": "把重试次数写成 100 次",
         },
         answer="C",
+        explanation=(
+            "不设 timeout，连接可能无限等待；正解是显式设 timeout 并捕获超时异常。选 A 的人把重试当超时防护，无上限重试只会更糟。"
+        ),
     ),
     Question(
         id="q10",
@@ -154,6 +183,9 @@ QUESTIONS_V1: tuple[Question, ...] = (
             "D": "resp.headers 是否为空",
         },
         answer="B",
+        explanation=(
+            "状态码才是资源存不存在的标准信号，404 即不存在，应先看 resp.status_code。选 A 的人拿响应体空不空当依据，会误判 204 或错误页。"
+        ),
     ),
     Question(
         id="q11",
@@ -167,6 +199,9 @@ QUESTIONS_V1: tuple[Question, ...] = (
             "D": "抛出异常，因为响应体不是合法 JSON",
         },
         answer="D",
+        explanation=(
+            "500 加空响应体时 resp.json() 解析失败，直接抛 JSONDecodeError，后面的取值不会执行。选 C 的人以为它会安静返回 None。"
+        ),
     ),
     Question(
         id="q12",
@@ -180,6 +215,9 @@ QUESTIONS_V1: tuple[Question, ...] = (
             "D": "token 由用户在请求里自定义",
         },
         answer="B",
+        explanation=(
+            "token 是分词器切出的最小单位，一个汉字常占 1 到 2 个 token，上下文上限同样按 token 算。选 A 的人当成字符数，估算会差出好几倍。"
+        ),
     ),
     Question(
         id="q13",
@@ -193,6 +231,9 @@ QUESTIONS_V1: tuple[Question, ...] = (
             "D": "不再需要处理超时",
         },
         answer="A",
+        explanation=(
+            "流式让第一个片段到达就开始渲染，首字延迟明显下降，但总时长与费用不变。选 B 的人把等待感更短误当成计费更低，token 数其实没有减少。"
+        ),
     ),
     Question(
         id="q14",
@@ -206,6 +247,9 @@ QUESTIONS_V1: tuple[Question, ...] = (
             "D": "没有 bug，不用改",
         },
         answer="B",
+        explanation=(
+            "中文几乎没空格，split(' ') 只切出 1 段，应按字符数近似（一个汉字约 1 到 2 个 token）。选 A 的 split() 对中文无效。"
+        ),
     ),
     Question(
         id="q15",
@@ -219,6 +263,9 @@ QUESTIONS_V1: tuple[Question, ...] = (
             "D": "必须只处理英文文档",
         },
         answer="B",
+        explanation=(
+            "片段过大稀释相关信号、过小切断语义，需要合适粒度加少量重叠，召回与上下文才都能用。选 A 的人以为越多越好，实际会挤爆上下文并引入噪声。"
+        ),
     ),
     Question(
         id="q16",
@@ -232,6 +279,9 @@ QUESTIONS_V1: tuple[Question, ...] = (
             "D": "按相关度排序、控制总长度，并标注片段来源",
         },
         answer="D",
+        explanation=(
+            "拼提示词要按相关度取前几段、控制总长度防止超出上下文，并标注来源便于核对与引用。选 A 的人把所有片段都塞进去，既超长又让模型被无关内容带偏。"
+        ),
     ),
     Question(
         id="q17",
@@ -245,6 +295,9 @@ QUESTIONS_V1: tuple[Question, ...] = (
             "D": "把 search 改成 print",
         },
         answer="A",
+        explanation=(
+            "检索到的 docs 完全没进 prompt，模型只能凭空作答，正确做法是把参考资料拼在问题前面。选 B 的删掉 docs 只是让遗漏更彻底，问题依然存在。"
+        ),
     ),
     Question(
         id="q18",
@@ -258,6 +311,9 @@ QUESTIONS_V1: tuple[Question, ...] = (
             "D": "只写设计文档",
         },
         answer="B",
+        explanation=(
+            "最小可运行闭环能被别人跑起来、看到输入输出，才算交付；功能数量与文档厚度都替代不了能跑。选 C 的人用功能点数量衡量进展，结果一个都没跑通。"
+        ),
     ),
     Question(
         id="q19",
@@ -271,6 +327,9 @@ QUESTIONS_V1: tuple[Question, ...] = (
             "D": "写进前端代码",
         },
         answer="A",
+        explanation=(
+            "密钥放 .env 环境变量并写进 .gitignore，仓库只留 .env.example。选 B 的硬编码会永久留在 git 历史里，事后删也清不干净。"
+        ),
     ),
     Question(
         id="q20",
@@ -284,6 +343,9 @@ QUESTIONS_V1: tuple[Question, ...] = (
             "D": "把 get 改成 post",
         },
         answer="C",
+        explanation=(
+            "网络调用可能超时或返回非 JSON，须 try/except 捕获 requests 异常并设 timeout。选 A 去 .json() 只是挪走解析错误。"
+        ),
     ),
 )
 
@@ -348,10 +410,10 @@ def question_ids() -> tuple[str, ...]:
 
 
 def paper_questions() -> tuple[dict[str, object], ...]:
-    """Prompt-and-options view of the one question set, with the answer key dropped.
+    """Prompt-and-options view of the one question set: no answer, no explanation.
 
     Projected from QUESTIONS_V1 field by field so no second question definition
-    exists and the answer field never leaves this module.
+    exists; the answer key and the per-question explanation never reach a paper.
     """
     return tuple(
         {

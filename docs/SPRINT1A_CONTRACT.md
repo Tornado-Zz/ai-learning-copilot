@@ -325,7 +325,7 @@ submissions 可写列只有 is_passed、verification_method、ai_assistance_leve
 ```
 
 - 顶层固定 8 个字段：`attempt_id / submitted_at / question_set_version / rule_version / total_correct / total_questions / domains / questions`；`domains` 与 §6.3 同构（恒 6 行）。`test_diagnostics_detail.py::test_detail_returns_per_question_verdicts_from_the_live_question_set` 用 `set(body)` 逐键断言了这 8 个键。
-- `questions[]` 每行固定 9 个字段：`id / order / domain_code / prompt / options[]（key、text）/ selected / correct / is_correct / explanation`；恒 20 行，`order` 为 1–20 且与题集顺序一致。`selected` 取自该批次落库的 answers（未作答为 `null`），`correct` 是答案键，`is_correct` 为两者是否相等，`explanation` 当前恒为 `null`（题库暂无解析字段，返回 null 而不是省略键）。
+- `questions[]` 每行固定 9 个字段：`id / order / domain_code / prompt / options[]（key、text）/ selected / correct / is_correct / explanation`；恒 20 行，`order` 为 1–20 且与题集顺序一致。`selected` 取自该批次落库的 answers（未作答为 `null`），`correct` 是答案键，`is_correct` 为两者是否相等，`explanation` **字段始终存在**（不省略键）。起草契约为 `null`（题库当时无解析字段）；v0.1.15 起 20 题全部返回解析文本，而发卷接口仍不含该键——**字段形状不变，只是取值有内容**，评分口径（`v1` / `r1`）未变。
 - **题面在请求时从题库投影，数据库只存答案**：本接口不读题库副本也不回写；`test_diagnostics_detail.py::test_detail_marks_wrong_choices_and_the_database_stores_answers_only` 同时断言逐题对错与「库里只有 answers」。
 - **答案可见性约束（I9）**：`correct` / `is_correct` / `explanation` 只能由本接口、针对**已落库的批次**返回；§6.8 的题面接口永不返回它们；任何"未提交也能拿到答案"的路径（把答案塞进 paper、前端内置答案表、按 id 猜答案的独立接口）都判定为契约违规。
 - 批次只追加不改写（I8），因此同一 `attempt_id` 反复读取必须返回相同内容。

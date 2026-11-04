@@ -360,7 +360,7 @@
 3. **单用户、无鉴权**：见第 1 节。所有端点共享同一个用户；不存在「按用户隔离」的能力。
 4. **不执行用户代码**：练习判题是静态规则 + 自报输出比对，不能证明代码真的跑通。
 5. **`GET /ready` 与 `GET /health` 不走统一错误体**：它们返回各自的结构（就绪失败是 503 + `status=not_ready`），这是刻意保留的运维语义。
-6. **逐题解析恒为 `null`**：`GET /diagnostics/attempts/{id}` 的 `questions[].explanation` 后端恒返回 `null`（题库暂无解析字段）。
+6. **逐题解析**：`GET /diagnostics/attempts/{id}` 的 `questions[].explanation` 自 v0.1.15 起返回该题解析（20 题全覆盖，60–80 字）。**发卷接口 `GET /diagnostics/paper` 不返回该字段**，避免提交前泄题；`question_set_version` / `rule_version` 未变（解析不参与评分）。
 
 ---
 
