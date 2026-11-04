@@ -43,7 +43,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\start-dev.ps1
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\smoke.ps1
 ```
 
-- 第一条：起 PostgreSQL → 等 healthy → `alembic upgrade head` → 起 API（`127.0.0.1:8000`）→ 构建并起 Web（`127.0.0.1:3000`）→ 等到两者都能应答。
+- 第一条：起 PostgreSQL → 等 healthy → `alembic upgrade head` → 起 API（`127.0.0.1:8000`）→ 构建并起 Web（`127.0.0.1:3000`）。**它会自动补齐 2.1 的 `.env`**（缺哪个就从对应 `.env.example` 复制），并在首次运行时执行 `npm ci` 与 `npm run build`——所以新克隆只需这一条命令→ 等到两者都能应答。
 - 第二条：只读自检（数据库健康、迁移到 head、API 端点结构、页面是否 200），**不写任何业务数据**；全部 `PASS` 才算跑通。
 
 手动启动的完整步骤（四步）见 [README.md](README.md#本地启动windows-powershell)。接口交互式文档：<http://127.0.0.1:8000/docs>。

@@ -81,6 +81,11 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\smoke.ps1   # 全 
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\start-dev.ps1   # 起库 + 迁移 + API + Web
+```
+
+**首次运行它会自动做三件事**（新克隆里这些都是缺的）：从 `.env.example` 生成 `apps/api/.env` 与 `apps/web/.env.local`、`npm ci` 安装前端依赖、构建前端（约几分钟）。之后每次启动只需几秒。
+
+```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\smoke.ps1       # 只读自检，全部 PASS 才算跑通
 ```
 
