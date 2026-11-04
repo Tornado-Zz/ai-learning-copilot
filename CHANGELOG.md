@@ -5,6 +5,31 @@
 
 ## [Unreleased]
 
+## [0.1.3] — 2026-11-04
+
+补上「结业作品提交」，但**只做能诚实交付的部分**：本版本是单用户本地应用，没有第二个人能评审，所以评审一律是**本人自评**。
+
+### Added
+
+- `capstone_submissions` 表（迁移 `0009`）：`draft → submitted → reviewed` 单向状态机；提交时把四条达标要求的结果**快照存档**，事后可追溯。
+- 6 个端点：创建草稿、列表、详情、改草稿（仅 draft）、提交、自评。
+- `/projects` 页新增提交表单（标题 / 简介 / 仓库链接 / 运行说明 / 4 项自检清单）与状态展示。
+
+### Changed
+
+- 版本号收敛到单一来源 `apps/web/src/lib/app-version.ts`，界面不再出现三处不同的版本号；`apps/web/package.json` 同步到 0.1.3。
+
+### Fixed
+
+- **数据库约束的三值逻辑漏洞**（迁移 `0010`）：`ck_capstone_submissions_reviewed_complete` 原本写 `reviewer = 'self'`，当 `reviewer` 为 `NULL` 时整条 CHECK 求值为 `NULL`，PostgreSQL 视为通过——实测可以把「已评审但没有评审人」的行写进库。已改为显式 `reviewer IS NOT NULL AND reviewer = 'self'`。
+- 列表排序用例依赖库内既有作品数，混入其它数据时位置断言会漂移；改为只对本用例创建的行断言相对顺序。
+- 迁移链断言漏了 `0009 → 0010` 一环（批量改 head 常量时误改），已补 `CAPSTONE_REVISION` 常量与断言。
+
+### Verified
+
+- 真实接口序列：创建草稿 → 提交（快照 `ready=false`、四条要求齐全）→ 重复提交 409 `CAPSTONE_INVALID_STATE` → 未确认自评 400 `SELF_REVIEW_NOT_CONFIRMED` → 非法 verdict 422 → 确认自评 200（`reviewed / pass / self`）。
+- 数据库层实测：`UPDATE ... SET reviewer = NULL` 与 `reviewer = 'human'` 均被约束拒绝。
+- 默认档 `130 passed`；集成档 `125 passed`；**全新数据库**上 `125 passed`。
 ## [0.1.2] — 2026-11-04
 
 补上「错题本与间隔复习」——`review_items` 此前恒为 0，周计划里 `kind='review'` 从不生成。新增一张表（迁移 `0008_review_items`），其余表零变化。

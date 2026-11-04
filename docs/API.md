@@ -1,6 +1,6 @@
-# API 参考（v0.1.1）
+# API 参考（v0.1.3）
 
-本文档描述 **v0.1.2 实际注册的 31 个操作 / 30 条路径**，与实际运行的 `GET /openapi.json` 逐条核对过（`/exercises/{id}/submissions` 有 GET 与 POST 两个操作）。
+本文档描述 **v0.1.3 实际注册的 37 个操作 / 34 条路径**，与实际运行的 `GET /openapi.json` 逐条核对过（`/exercises/{id}/submissions` 有 GET 与 POST 两个操作）。
 契约来源：[SPRINT1A_CONTRACT.md](SPRINT1A_CONTRACT.md) §6；实现来源：`apps/api/app/api/v1/routes/`。
 
 - 基地址：`http://127.0.0.1:8000`
@@ -63,7 +63,7 @@
 
 ---
 
-## 3. 端点总览（31 条操作 / 30 条路径）
+## 3. 端点总览（37 条操作 / 34 条路径）
 
 | # | 方法 | 路径 | 说明 |
 | --- | --- | --- | --- |
@@ -98,6 +98,12 @@
 | 29 | GET | `/api/v1/review/items` | 错题本列表（`due=1` 只看今天到期） |
 | 30 | POST | `/api/v1/review/items/{item_id}/result` | 记录一次复习结果并推进间隔 / 置 `done` |
 | 31 | GET | `/api/v1/review/summary` | 待复习 / 今日到期 / 已完成 / 下次到期 |
+| 32 | POST | `/api/v1/capstone/submissions` | 新建结业作品草稿 |
+| 33 | GET | `/api/v1/capstone/submissions` | 我的作品列表（`created_at DESC, id DESC`） |
+| 34 | GET | `/api/v1/capstone/submissions/{submission_id}` | 作品详情 |
+| 35 | PATCH | `/api/v1/capstone/submissions/{submission_id}` | 修改草稿（仅 `draft`） |
+| 36 | POST | `/api/v1/capstone/submissions/{submission_id}/submit` | 提交并写入 readiness 快照 |
+| 37 | POST | `/api/v1/capstone/submissions/{submission_id}/review` | **本人自评**，写入 `verdict` 与 `reviewer='self'` |
 
 ---
 
@@ -312,6 +318,25 @@
 > 「今天」按 `users.timezone` 计算，与周计划使用同一个时钟。**行永不删除**，`done` 只是状态。
 > 周计划会为 `next_review_on` 落在 `[今天, 本周日]` 的待复习项排入 `kind='review'`，且**排在当天的新练习之前**（复习优先占位）。
 > **逾期复习（`next_review_on < 今天`）不会进入周计划**，只在 `GET /review/items?due=1` 出现——这是已冻结的口径，属已知限制。
+
+---
+
+### 4.11 结业作品提交与自评（capstone）— v0.1.3 新增
+
+状态机：`draft → submitted → reviewed`，三条转移都是单向的。
+
+| 方法 | 路径 | 成功 | 说明 |
+| --- | --- | --- | --- |
+| POST | `/capstone/submissions` | 201 完整对象 | 必填 `title`(1..120)、`summary`(1..4000)、`run_instructions`(1..4000)；`repo_url` 可选（http/https，≤300）；`self_checks` 是**字符串数组** |
+| GET | `/capstone/submissions?limit=20` | 200 `{items, total}` | `created_at DESC, id DESC` |
+| GET | `/capstone/submissions/{id}` | 200 | 不存在或非本人 → 404 `NOT_FOUND` |
+| PATCH | `/capstone/submissions/{id}` | 200 | **只有 `draft` 可改**，否则 409 `CAPSTONE_INVALID_STATE` |
+| POST | `/capstone/submissions/{id}/submit` | 200 | `draft → submitted`，同事务写 `readiness_snapshot` 与 `submitted_at`；非 draft → 409 |
+| POST | `/capstone/submissions/{id}/review` | 200 | body `{verdict, note?, self_review_confirmed}`；未确认 → 400 `SELF_REVIEW_NOT_CONFIRMED`；非 submitted → 409；`verdict` 非法 → 422 |
+
+> **诚实性边界**：本版本是单用户本地应用，**没有第三方评审者**。
+> `reviewer` 列在数据库层只接受 `'self'`，且 `status='reviewed'` 时必须有 `verdict`、`reviewer`、`reviewed_at` 三者（迁移 `0010` 修掉了 `reviewer = NULL` 能绕过 CHECK 的三值逻辑漏洞）。
+> `POST .../submit` **不会**因为 readiness 未达标而拒绝：作品可以先交，达标情况由快照记录、由界面提示。
 
 ---
 
