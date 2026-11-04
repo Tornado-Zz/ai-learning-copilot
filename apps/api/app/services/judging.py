@@ -21,7 +21,9 @@ B1 证据口径（唯一，不得改写）：
 
 from __future__ import annotations
 
+import io
 import re
+import tokenize
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
@@ -108,8 +110,86 @@ def normalize_output(text: str | None) -> str:
     return "\n".join(lines)
 
 
+def code_for_matching(code_text: str) -> str:
+    """把注释和「语句位置的字符串」（docstring）抹成空格，剩下的才是真正代码。
+
+    没有这一步时，把要求抄进一行注释就能通过全部规则——实测只写
+    `# def error_kind(...) [-1] int(` 一行即可 13/13 通过。docstring 同理。
+
+    只抹这两类：字典里的字符串（如 {"role": "system"}）必须保留，
+    否则要求里那些键名规则会反过来判错。抹成空格而不是删除，
+    是为了让偏移量不变，方便排查。
+    """
+    try:
+        tokens = list(tokenize.generate_tokens(io.StringIO(code_text).readline))
+    except (tokenize.TokenError, IndentationError, SyntaxError):
+        # 学习者提交的多半是写了一半的代码，tokenize 会失败；
+        # 此时退回保守的行级剥离：只在引号之外把 # 之后抹掉。
+        return _strip_comments_fallback(code_text)
+    # 按行存成二维字符表：token 的位置是 (行, 列)，直接对字符串下标赋值会报错。
+    chars = [list(line) for line in code_text.split("\n")]
+    source_lines = code_text.split("\n")
+    depth = 0  # 括号嵌套深度：>0 说明在表达式里，此时的字符串是数据而不是文档
+    for token in tokens:
+        if token.type == tokenize.OP:
+            if token.string in ("(", "[", "{"):
+                depth += 1
+            elif token.string in (")", "]", "}"):
+                depth = max(0, depth - 1)
+        blank = False
+        if token.type == tokenize.COMMENT:
+            blank = True
+        elif token.type == tokenize.STRING:
+            # docstring / 裸字符串语句 = 不在任何括号里，且该行字符串之前只有空白。
+            # 这两个条件同时成立才算；字典值 {"role": "system"} 虽然也可能独占一行，
+            # 但它位于括号内，depth > 0，因此被保留。
+            line_index = token.start[0] - 1
+            prefix = source_lines[line_index][: token.start[1]] if line_index < len(source_lines) else ""
+            blank = depth == 0 and prefix.strip() == ""
+        if not blank:
+            continue
+        for line_no in range(token.start[0], token.end[0] + 1):
+            line_index = line_no - 1
+            if line_index >= len(chars):
+                break
+            line = chars[line_index]
+            start = token.start[1] if line_no == token.start[0] else 0
+            end = token.end[1] if line_no == token.end[0] else len(line)
+            for position in range(start, min(end, len(line))):
+                line[position] = " "
+    return "\n".join("".join(line) for line in chars)
+
+
+def _strip_comments_fallback(code_text: str) -> str:
+    """tokenize 失败时的保守剥离：引号之外的 # 之后一律抹掉。"""
+    out_lines: list[str] = []
+    for line in code_text.split("\n"):
+        in_single = in_double = False
+        cut = len(line)
+        escaped = False
+        for position, char in enumerate(line):
+            if escaped:
+                escaped = False
+                continue
+            if char == "\\":
+                escaped = True
+                continue
+            if char == "'" and not in_double:
+                in_single = not in_single
+            elif char == '"' and not in_single:
+                in_double = not in_double
+            elif char == "#" and not in_single and not in_double:
+                cut = position
+                break
+        out_lines.append(line[:cut])
+    return "\n".join(out_lines)
+
+
 def pattern_hits(pattern: str, code_text: str) -> bool:
-    """正则优先；题目种子里写坏正则时退化成字面包含，绝不因为一条模式而 500。"""
+    """正则优先；题目种子里写坏正则时退化成字面包含，绝不因为一条模式而 500。
+
+    code_text 应当已经过 code_for_matching 处理：注释与 docstring 不参与匹配。
+    """
     try:
         return re.search(pattern, code_text) is not None
     except re.error:
@@ -167,10 +247,12 @@ def judge_static_rule(
     标签缺失、为空或不是字符串时回退到原来的序号文案——标签只影响措辞，绝不参与
     判定，也绝不会让判题报错。
     """
+    # 匹配用的文本先抹掉注释与 docstring：否则把要求抄进注释即可通过。
+    matchable = code_for_matching(code_text)
     checks: list[Check] = []
     missing_required = 0
     for index, pattern in enumerate(required_patterns, start=1):
-        hit = pattern_hits(pattern, code_text)
+        hit = pattern_hits(pattern, matchable)
         if not hit:
             missing_required += 1
         label = requirement_label_at(requirement_labels, index)
@@ -192,7 +274,7 @@ def judge_static_rule(
 
     hit_forbidden = 0
     for index, pattern in enumerate(forbidden_patterns, start=1):
-        hit = pattern_hits(pattern, code_text)
+        hit = pattern_hits(pattern, matchable)
         if hit:
             hit_forbidden += 1
         checks.append(
