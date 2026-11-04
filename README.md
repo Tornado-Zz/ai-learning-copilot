@@ -49,33 +49,28 @@ Python 基础 → 编程实践 → API → LLM → RAG/Agent 基础 → 简单 A
 | 逐题解析文本 | 20 道诊断题**全部带解析**（v0.1.15 起）：提交后在批次明细里逐题显示「为什么对 + 最易错的那一项错在哪」。发卷接口不返回解析，避免泄题 |
 | 部署 | 无 Docker 镜像、无部署脚本；**只在本机回环地址运行** |
 
-## 界面清单（截图占位）
+## 界面（真实截图）
 
-**本仓库目前不含任何截图**——刻意不放，避免过期截图冒充当前界面。要看真实界面请本地启动后打开：
+以下截图取自 **v0.1.17** 的实际运行界面（1280×800，Chromium），不是设计稿、未修图。数据来自本机开发库的一次真实使用。
 
-| 页面 | 路径 | 看什么 |
-| --- | --- | --- |
-| 今日 | `/` | 今日概览、系统状态徽标 |
-| 学习 | `/learn` → `/learn/{id}` | 11 节课程列表与正文、进度按钮 |
-| 练习 | `/practice` → `/practice/{id}` | 22 道练习、提交判题与证据标签 |
-| 项目 | `/projects` | 四条结业要求与实际值（真实数据推导，无演示数字） |
-| 进度 | `/progress` | 课程 / 本周计划 / 练习证据 / 能力等级 / 7 天活动 |
-| 档案 | `/onboarding` | 学习档案与时区确认 |
-| 诊断 | `/diagnostic` | 20 题诊断（草稿本地保存，刷新不丢） |
-| 结果 | `/result` | 六域按证据分级的结果 |
-| 周计划 | `/plan` | 生成计划、待执行与历史分开 |
-| 历史 | `/history` | 诊断批次历史 |
-| 知识库 | `/knowledge` | 来源清单、检索 |
+| 今日概览 | 学习路线 |
+| --- | --- |
+| ![今日概览](docs/images/01-today.jpg) | ![学习路线](docs/images/02-lessons.jpg) |
+| **周计划**（每天为什么这样排都写在行内） | **课程正文**（六块结构之一） |
+| ![周计划](docs/images/03-plan.jpg) | ![课程正文](docs/images/04-lesson-detail.jpg) |
+| **练习页**（顶部说明这道题是欠着的复习） | **诊断历史**（批次可追溯） |
+| ![练习详情](docs/images/05-practice.jpg) | ![诊断历史](docs/images/06-history.jpg) |
 
-截图步骤（想投稿截图时用）：
+截图会过时，所以 `scripts/docs-consistency-check.mjs` 会读取 `docs/images/VERSION` 与当前版本比对：不一致时打印提示，提醒重新截图。**宁可被告知截图旧了，也不放一张没人核对的图。**
+
+其余页面（`/projects` `/progress` `/onboarding` `/diagnostic` `/result` `/review` `/knowledge`）本地启动后可直接打开：
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\start-dev.ps1
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\smoke.ps1   # 全 PASS 再截图
 ```
 
-然后浏览器打开 <http://localhost:3000>（Linux/macOS 用 `http://127.0.0.1:3000`），按上表逐页截图，
-放到 `docs/images/`，并在 PR 里说明分辨率与浏览器版本。**不要 P 图、不要用设计稿冒充运行截图。**
+重新截图的规矩：`npm run build` 后用真实数据打开页面，1280 宽、浏览器缩放 100%，**不 P 图、不用设计稿冒充运行截图**，并把 `docs/images/VERSION` 更新为当前版本。
 
 ## 快速开始（两条命令）
 

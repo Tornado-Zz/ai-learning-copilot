@@ -63,6 +63,10 @@ const pageRoutes = walk(APP_DIR, (n) => n === 'page.tsx').length;
 const webPkg = JSON.parse(readFileSync(join(ROOT, 'apps/web/package.json'), 'utf8')).version;
 const apiPkg = readFileSync(join(ROOT, 'apps/api/pyproject.toml'), 'utf8').match(/^version\s*=\s*"([^"]+)"/m)[1];
 const uiVersion = readFileSync(join(ROOT, 'apps/web/src/lib/app-version.ts'), 'utf8').match(/APP_VERSION\s*=\s*"([^"]+)"/)[1];
+// 第四处：后端运行时版本。它出现在 GET /health 的 version 字段上，界面的「服务版本」
+// 就是读它——此前写死 0.1.0，界面一直显示旧版本而无人察觉。
+const apiRuntimeVersion = readFileSync(join(ROOT, 'apps/api/app/__init__.py'), 'utf8')
+  .match(/__version__\s*=\s*"([^"]+)"/)[1];
 
 // ---- 文档侧的自称 ----
 const DOC_FILES = [
@@ -74,9 +78,11 @@ const DOC_FILES = [
 const docTexts = DOC_FILES.map((rel) => ({ rel, text: readFileSync(join(ROOT, rel), 'utf8') }));
 
 const problems = [];
-if (!(uiVersion === webPkg && webPkg === apiPkg)) {
+const versions = [uiVersion, webPkg, apiPkg, apiRuntimeVersion];
+if (new Set(versions).size !== 1) {
   problems.push(
-    '版本号不一致：app-version.ts=' + uiVersion + ' / package.json=' + webPkg + ' / pyproject=' + apiPkg,
+    '版本号不一致：app-version.ts=' + uiVersion + ' / package.json=' + webPkg +
+      ' / pyproject=' + apiPkg + ' / app/__init__.py=' + apiRuntimeVersion,
   );
 }
 function scan(pattern, label, expected) {
@@ -117,8 +123,22 @@ console.log('  迁移版本    =', migrationFiles.length);
 console.log('  业务表      =', tables.size);
 console.log('  接口操作    =', operations);
 console.log('  页面路由    =', pageRoutes);
-console.log('  版本号      = ui ' + uiVersion + ' / web ' + webPkg + ' / api ' + apiPkg);
+console.log(
+  '  版本号      = ui ' + uiVersion + ' / web ' + webPkg + ' / api ' + apiPkg + ' / runtime ' + apiRuntimeVersion,
+);
 console.log('');
+// 截图会过时。这里只提示、不判失败：重新截图是发布动作，不该拦住每一次代码提交。
+try {
+  const shotVersion = readFileSync(join(ROOT, 'docs/images/VERSION'), 'utf8').trim();
+  if (shotVersion !== uiVersion) {
+    console.log('');
+    console.log('NOTE  docs/images 的截图对应 v' + shotVersion + '，当前是 v' + uiVersion + '，建议重新截图。');
+  }
+} catch {
+  console.log('');
+  console.log('NOTE  没有 docs/images/VERSION，无法判断截图是否过期。');
+}
+
 if (problems.length === 0) {
   console.log('文档一致性：全部一致。');
   process.exit(0);

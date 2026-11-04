@@ -5,6 +5,33 @@
 
 ## [Unreleased]
 
+## [0.1.17] — 2026-11-04
+
+给仓库补上**真实截图**，并修掉一个界面长期显示错误版本的 bug。
+
+### Added
+
+- `docs/images/` 下 6 张真实运行截图（1280×800，Chromium，未修图）：今日概览、学习路线、周计划、课程正文、练习页（含复习横幅）、诊断历史。README 由「截图占位」改为图片表格。
+- `docs/images/VERSION` 版本戳：截图属于哪个版本一目了然。
+
+### Fixed
+
+- **界面「服务版本」一直显示 `0.1.0`**：`apps/api/app/__init__.py` 里的 `__version__` 从未跟随发布更新，而它同时是 `GET /health` 的 `version` 字段与 OpenAPI 的 `info.version`。已改为 `0.1.17`，重启后 `health version = 0.1.17`、`openapi info.version = 0.1.17`。
+- 版本一致性检查从 **3 处扩到 4 处**（新增后端运行时版本）。此前它只比对 `app-version.ts` / `package.json` / `pyproject.toml`，所以第 4 处漂移了 17 个版本都没被发现。
+
+### 关于「截图会过期」的处理
+
+README 原本写「刻意不放截图，避免过期截图冒充当前界面」。这个顾虑是对的，但零截图的仓库几乎没人会 clone。现在改为：**放截图，同时让过期可被发现**——
+
+- `docs-consistency-check.mjs` 读取 `docs/images/VERSION` 与当前版本比对，不一致时打印 `NOTE` 提醒重新截图；
+- 只提示、不判失败：重新截图是发布动作，不该拦住每一次代码提交。
+
+### Verified
+
+- 4 处版本号实测一致；`health` 与 `openapi` 都报 `0.1.17`。
+- 截图过期提示双向验证：把 `VERSION` 改成 `0.1.10` → 打印 NOTE；改回 → 无提示。
+- `.gitattributes` 已有 `*.jpg binary`，`git check-attr text` 确认图片不做换行转换。
+
 ## [0.1.16] — 2026-11-04
 
 打通「错题 → 复习 → 练习」的界面闭环：练习页此前不知道自己是不是一道复习题。
