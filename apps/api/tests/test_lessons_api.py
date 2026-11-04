@@ -17,14 +17,33 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 pytestmark = pytest.mark.integration
 
+# 播种顺序：0003 的 5 节 Python 基础课，0011 的 a3 / a4，0012 的 a5 / a6，
+# 0013 的 a2 编程实践两节（order_index 接着 9 往下排到 11）。
 EXPECTED_CODES = [
     "route_a.py.variables",
     "route_a.py.control_flow",
     "route_a.py.list_dict",
     "route_a.py.functions",
     "route_a.py.debugging",
-    # 0011 追加 a3（API）与 a4（LLM），0012 追加 a5（RAG）与 a6（Agent），
-    # order_index 接着 5 往下排到 9。
+    "route_a.api.json",
+    "route_a.llm.messages",
+    "route_a.rag.retrieval",
+    "route_a.agent.tool",
+    "route_a.practice.decompose",
+    "route_a.practice.debug",
+]
+
+# 列表接口按 (stage, order_index) 排序，不是按 order_index：a2 的两节课 order_index
+# 是 10 / 11（0013 只发 INSERT，不改写既有行，只能接在末尾），stage 却是 2，
+# 所以在产品里它们排在 a1 之后、a3 之前。两种顺序都逐条钉死。
+EXPECTED_CODES_BY_API_ORDER = [
+    "route_a.py.variables",
+    "route_a.py.control_flow",
+    "route_a.py.list_dict",
+    "route_a.py.functions",
+    "route_a.py.debugging",
+    "route_a.practice.decompose",
+    "route_a.practice.debug",
     "route_a.api.json",
     "route_a.llm.messages",
     "route_a.rag.retrieval",
@@ -94,7 +113,7 @@ async def test_03_five_lessons_are_seeded_with_complete_content(
             )
         )
     ).mappings().all()
-    # AC-S2-05 冻结的是「0003 播种的 3–5 节」；0011/0012 之后产品是 9 节，
+    # AC-S2-05 冻结的是「0003 播种的 3–5 节」；0011/0012/0013 之后产品是 11 节，
     # 因此只保留下限，课程清单由 EXPECTED_CODES 逐条钉死。
     assert 3 <= len(rows)
     assert [row["code"] for row in rows] == EXPECTED_CODES
@@ -118,7 +137,7 @@ async def test_03_five_lessons_are_seeded_with_complete_content(
     assert listed.status_code == 200, listed.text
     body = listed.json()
     assert body["total"] == len(rows)
-    assert [item["code"] for item in body["items"]] == EXPECTED_CODES
+    assert [item["code"] for item in body["items"]] == EXPECTED_CODES_BY_API_ORDER
     for item in body["items"]:
         assert {"stage", "order_index", "estimated_minutes", "content_version"} <= set(item)
         assert "content" not in item, "列表不下发正文"

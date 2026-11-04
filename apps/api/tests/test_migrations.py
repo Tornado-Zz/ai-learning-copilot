@@ -32,7 +32,9 @@ CAPSTONE_REVISION = "0009_capstone_submissions"
 CAPSTONE_REVIEW_REVISION = "0010_capstone_review_requires_reviewer"
 SPRINT7_REVISION = "0011_sprint7_ai_content"
 RAG_REVISION = "0012_sprint8_rag_agent"
-HEAD_REVISION = "0012_sprint8_rag_agent"
+# v0.1.13 的 0013 补上 a2 编程实践两节课与 4 道练习：只发 INSERT，head 前移一格。
+PRACTICE_REVISION = "0013_sprint9_practice_content"
+HEAD_REVISION = "0013_sprint9_practice_content"
 SPRINT2_TABLES = {"lessons", "learning_progress", "study_plan_items"}
 SPRINT3_TABLES = {"exercises", "submissions"}
 
@@ -163,6 +165,7 @@ async def test_01_alembic_upgrade_head_succeeds_and_reports_head(database_url: s
     assert f"{CAPSTONE_REVISION} -> {CAPSTONE_REVIEW_REVISION}" in history.stdout
     assert f"{CAPSTONE_REVIEW_REVISION} -> {SPRINT7_REVISION}" in history.stdout
     assert f"{SPRINT7_REVISION} -> {RAG_REVISION}" in history.stdout
+    assert f"{RAG_REVISION} -> {PRACTICE_REVISION}" in history.stdout
     current = subprocess.run(
         [sys.executable, "-m", "alembic", "current"],
         cwd=API_DIR,

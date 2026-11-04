@@ -26,8 +26,9 @@ BASELINE_REVISION = "0002_sprint1a_identity_diagnostics"
 # S3 阶段 B 追加 0004、Sprint 4 追加 0005、Sprint 5 追加 0006、Sprint 6 追加 0007、
 # v0.1.2 追加 0008、v0.1.3 追加 0009 后 head 继续前移；本文件仍只校验 0003 建的 3 张表。
 SPRINT3_REVISION = "0004_sprint3_exercises"
-# 0011 追加 a3/a4、0012 追加 a5/a6 四节 AI 课后 head 前移；0003 建的 3 张表不受影响。
-HEAD_REVISION = "0012_sprint8_rag_agent"
+# 0011 追加 a3/a4、0012 追加 a5/a6 四节 AI 课，0013 补 a2 编程实践两节后 head 前移；
+# 0003 建的 3 张表不受影响。
+HEAD_REVISION = "0013_sprint9_practice_content"
 
 # 0003 之前就已存在的 5 张表：迁移只许加表，不许让这些表少行。
 PRE_MIGRATION_TABLES = (
