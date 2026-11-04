@@ -5,6 +5,20 @@ $ErrorActionPreference = 'Continue'
 $root = Split-Path -Parent $PSScriptRoot
 $failures = @()
 
+# npm ci deletes node_modules before reinstalling. While a dev server is running,
+# next start holds node_modules/@next/swc-*.node open, so the unlink fails with
+# EPERM and leaves the install (and the running site) broken. Refuse early.
+$busy = @()
+foreach ($port in 3000, 8000) {
+  $conn = Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue
+  if ($conn) { $busy += $port }
+}
+if ($busy.Count -gt 0) {
+  Write-Host ('Ports in use: ' + ($busy -join ', ')) -ForegroundColor Yellow
+  Write-Host 'Stop the dev servers first (start-dev runs them). npm ci cannot replace node_modules while next start is running.' -ForegroundColor Yellow
+  exit 1
+}
+
 function Step($name, [scriptblock]$run) {
   Write-Host ('--- ' + $name) -ForegroundColor Cyan
   & $run

@@ -46,7 +46,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\ci.ps1      # 本�
 
 - 第一条：起 PostgreSQL → 等 healthy → `alembic upgrade head` → 起 API（`127.0.0.1:8000`）→ 构建并起 Web（`127.0.0.1:3000`）。**它会自动补齐 2.1 的 `.env`**（缺哪个就从对应 `.env.example` 复制），并在首次运行时执行 `npm ci` 与 `npm run build`——所以新克隆只需这一条命令，等到 API 与 Web 都能应答即可。
 - 第二条：只读自检（数据库健康、迁移到 head、API 端点结构、页面是否 200），**不写任何业务数据**；全部 `PASS` 才算跑通。
-- 第三条：**与 GitHub Actions 完全相同的 9 个步骤**（后端 5 步 + 前端 4 步），任何一步非 0 退出码都会列在末尾。推送前跑一次，就不会出现「推上去才发现 CI 红」。
+- 第三条：**与 GitHub Actions 完全相同的 10 个步骤**（后端 6 步含 `ruff check`，前端 4 步），任何一步非 0 退出码都会列在末尾。推送前跑一次，就不会出现「推上去才发现 CI 红」。运行前请先停掉开发服务：`npm ci` 会重建 `node_modules`，而 `next start` 正持有 `next-swc` 文件；脚本检测到 3000 端口被占用时会直接退出并说明原因。
 
 手动启动的完整步骤（四步）见 [README.md](README.md#本地启动windows-powershell)。接口交互式文档：<http://127.0.0.1:8000/docs>。
 
