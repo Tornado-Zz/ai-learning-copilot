@@ -50,6 +50,18 @@ export type ExerciseSummary = {
 
 export type VisibleTest = { input: string; expected: string };
 
+// 复习上下文：这道题在错题本里有没有欠账。后端此前只在 /review 列表里给，练习页拿不到，
+// 学习者在练习页重做时不知道自己在还一笔复习债。null = 这道题没有复习项。
+export type ExerciseReview = {
+  status: string;
+  due: boolean;
+  streak: number;
+  intervalDays: number;
+  nextReviewOn: string;
+  lastResult: string | null;
+  lastReviewedAt: string | null;
+};
+
 export type ExerciseDetail = {
   id: string;
   title: string;
@@ -58,6 +70,7 @@ export type ExerciseDetail = {
   visibleTests: VisibleTest[];
   estimatedMinutes: number;
   difficulty: string;
+  review: ExerciseReview | null;
 };
 
 export type SubmissionCheck = { name: string; passed: boolean; detail: string };
@@ -430,7 +443,34 @@ export function parseExerciseDetail(body: unknown): ExerciseDetailPayload | null
       visibleTests: readVisibleTests(exercise.visible_tests ?? exercise.visibleTests),
       estimatedMinutes: readNumber(exercise, ["estimated_minutes", "estimatedMinutes"]) ?? 0,
       difficulty: readDifficulty(exercise, ["difficulty"]),
+      review: parseExerciseReview(exercise.review),
     },
     history,
+  };
+}
+
+// 缺少 status 或 next_review_on 时按「没有复习项」处理：宁可少显示一条横幅，
+// 也不要凭猜测告诉学习者「你欠着一笔复习」。
+function parseExerciseReview(value: unknown): ExerciseReview | null {
+  if (value === null || value === undefined) {
+    return null;
+  }
+  const record = value as Record<string, unknown>;
+  if (typeof record !== "object" || Array.isArray(record)) {
+    return null;
+  }
+  const status = readText(record, ["status"], "");
+  const nextReviewOn = readText(record, ["next_review_on", "nextReviewOn"], "");
+  if (status === "" || nextReviewOn === "") {
+    return null;
+  }
+  return {
+    status,
+    due: record.due === true,
+    streak: readNumber(record, ["streak"]) ?? 0,
+    intervalDays: readNumber(record, ["interval_days", "intervalDays"]) ?? 0,
+    nextReviewOn,
+    lastResult: readText(record, ["last_result", "lastResult"], "") || null,
+    lastReviewedAt: readText(record, ["last_reviewed_at", "lastReviewedAt"], "") || null,
   };
 }

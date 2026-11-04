@@ -9,7 +9,8 @@ Four invariants live here:
    从不 UPDATE user_skill_levels，也不授予 L3/L4；MVP 的等级上限仍是 L2。
 3. 详情不返回答案键：SELECT_EXERCISE_DETAIL 根本不读 required_patterns /
    forbidden_patterns / expected_output；需要它们的只有独立的判题查询
-   SELECT_EXERCISE_FOR_JUDGING。
+   SELECT_EXERCISE_FOR_JUDGING。详情里的 review 块只读 review_items，且按
+   (user_id, exercise_id) 限定，别人的错题本进不来。
 4. attempt_no 的单调性由数据库唯一约束兜底：一次 INSERT ... SELECT 里算
    max+1，真出现并发时唯一约束报冲突，接口返回 409，而不是覆盖历史。
 """
@@ -76,6 +77,15 @@ SELECT_EXERCISE_LIST = text(
 
 # Detail reads the task text and the visible self-check cases only. The answer
 # keys are absent from this statement by design, not by a serializer filter.
+#
+# The lateral join answers "does this learner owe a review of this task": it reads
+# review_items for this user and this exercise and nothing else, so one learner's
+# mistake book never reaches another's detail. review_items is unique on
+# (user_id, exercise_id) and has no soft-delete column (rows are never deleted,
+# review R4), so the pair already yields at most one row; ORDER BY id DESC keeps
+# the "newest row wins" wording true if a second source ever inserts one.
+# due is compared against :local_today, which get_exercise fills from
+# review.local_today - the same users.timezone clock the mistake book uses.
 SELECT_EXERCISE_DETAIL = text(
     f"""
     WITH {_LATEST_AND_PASSED}
@@ -86,11 +96,26 @@ SELECT_EXERCISE_DETAIL = text(
            COALESCE(p.passed_count, 0) AS passed_count,
            lat.last_submission_id, lat.last_attempt_no, lat.last_is_passed,
            lat.last_judging_mode, lat.last_verification_method,
-           lat.last_verification_strength, lat.last_created_at
+           lat.last_verification_strength, lat.last_created_at,
+           rv.id AS review_item_id, rv.status AS review_status,
+           rv.streak AS review_streak, rv.interval_days AS review_interval_days,
+           rv.next_review_on AS review_next_review_on,
+           rv.last_result AS review_last_result,
+           rv.last_reviewed_at AS review_last_reviewed_at,
+           (rv.status = 'pending'
+            AND rv.next_review_on <= CAST(:local_today AS date)) AS review_due
     FROM exercises e
     JOIN lessons l ON l.id = e.lesson_id
     LEFT JOIN latest lat ON lat.exercise_id = e.id
     LEFT JOIN passed p ON p.exercise_id = e.id
+    LEFT JOIN LATERAL (
+        SELECT ri.id, ri.status, ri.streak, ri.interval_days, ri.next_review_on,
+               ri.last_result, ri.last_reviewed_at
+        FROM review_items ri
+        WHERE ri.user_id = :user_id AND ri.exercise_id = e.id
+        ORDER BY ri.id DESC
+        LIMIT 1
+    ) rv ON TRUE
     WHERE e.id = :exercise_id AND e.status = 'published' AND e.deleted_at IS NULL
     """
 )
@@ -224,6 +249,27 @@ def _last_submission(row: dict[str, Any]) -> dict[str, object] | None:
     )
 
 
+def _review_block(row: dict[str, Any]) -> dict[str, object] | None:
+    """This user's review row for the exercise, or None when there is no row.
+
+    None is the honest answer for "not in the mistake book": an empty object would
+    claim a review exists with no status. A row whose status is 'done' still
+    returns a block, because the learner may want to see the finished streak.
+    """
+    if row["review_item_id"] is None:
+        return None
+    last_result = row["review_last_result"]
+    return {
+        "status": str(row["review_status"]),
+        "due": bool(row["review_due"]),
+        "streak": int(row["review_streak"]),
+        "interval_days": int(row["review_interval_days"]),
+        "next_review_on": row["review_next_review_on"],
+        "last_result": None if last_result is None else str(last_result),
+        "last_reviewed_at": row["review_last_reviewed_at"],
+    }
+
+
 def _list_row(row: dict[str, Any]) -> dict[str, object]:
     return {
         "id": int(row["id"]),
@@ -262,11 +308,19 @@ async def list_exercises(
 async def get_exercise(
     session: AsyncSession, user_id: int, exercise_id: int
 ) -> dict[str, object]:
-    """One published exercise with its task text; 404 when it does not exist."""
+    """One published exercise with its task text and this user's review context.
+
+    404 when the exercise does not exist. The review block is null unless the
+    mistake book holds a row for this (user, exercise) pair.
+    """
+    # 今天只来自 users.timezone：review.local_today 是唯一的日期来源，UTC 不参与。
+    # 直接用 now()::date 会在东八区凌晨把「今天到期」错算成明天。
+    today = await review.local_today(session, user_id)
     row = (
         (
             await session.execute(
-                SELECT_EXERCISE_DETAIL, {"user_id": user_id, "exercise_id": exercise_id}
+                SELECT_EXERCISE_DETAIL,
+                {"user_id": user_id, "exercise_id": exercise_id, "local_today": today},
             )
         )
         .mappings()
@@ -274,10 +328,12 @@ async def get_exercise(
     )
     if row is None:
         raise ApiError(404, NOT_FOUND, "练习不存在或未发布")
-    detail = _list_row(dict(row))
-    detail["prompt"] = str(row["prompt"])
-    detail["starter_code"] = str(row["starter_code"])
-    detail["visible_tests"] = _visible_tests(row["visible_tests"])
+    values = dict(row)
+    detail = _list_row(values)
+    detail["prompt"] = str(values["prompt"])
+    detail["starter_code"] = str(values["starter_code"])
+    detail["visible_tests"] = _visible_tests(values["visible_tests"])
+    detail["review"] = _review_block(values)
     return detail
 
 

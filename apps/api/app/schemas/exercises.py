@@ -2,9 +2,9 @@
 
 B1/B2 are reflected in the shapes themselves:
 
-* ExerciseDetailOut carries prompt, starter code and the visible self-check
-  cases only. required_patterns, forbidden_patterns and expected_output are the
-  answer keys and are never fields of a response model.
+* ExerciseDetailOut carries prompt, starter code, the visible self-check cases
+  and this user's review context. required_patterns, forbidden_patterns and
+  expected_output are the answer keys and are never fields of a response model.
 * SubmissionJudgedOut answers exactly the frozen seven keys; verification
   strength is stated as a label (已验证（静态规则） / 未验证（自检）), never as
   verified.
@@ -12,7 +12,7 @@ B1/B2 are reflected in the shapes themselves:
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 
 from pydantic import BaseModel, Field, field_serializer
 
@@ -84,8 +84,36 @@ class ExerciseListResponse(BaseModel):
     total: int
 
 
+class ExerciseReviewOut(BaseModel):
+    """This user's review context for one exercise (the /practice/{id} page).
+
+    It exists because a mistake-book row is what tells the learner "this one is a
+    review I owe", and the detail page had no way to know it. The field is null
+    when review_items holds no row for this (user, exercise) pair: the detail
+    never invents an empty object.
+
+    due compares next_review_on with the learner's own calendar day taken from
+    users.timezone (the same source app.services.review.local_today reads);
+    comparing against UTC would be off by a day for part of every day.
+    """
+
+    status: str = Field(description="pending（还需复习）/ done（已连续通过 3 次）")
+    due: bool = Field(
+        description="status='pending' 且 next_review_on <= 今天（今天按 users.timezone 取）"
+    )
+    streak: int
+    interval_days: int = Field(description="当前间隔天数，答错回到 1")
+    next_review_on: date = Field(description="下一次复习的本地日历日，不做时区换算")
+    last_result: str | None = Field(default=None, description="passed / failed / null")
+    last_reviewed_at: datetime | None = None
+
+    @field_serializer("last_reviewed_at")
+    def _serialize_last_reviewed_at(self, value: datetime | None) -> str | None:
+        return None if value is None else _iso_z(value)
+
+
 class ExerciseDetailOut(ExerciseListItemOut):
-    """Detail: adds the prompt and the starting code, and nothing else.
+    """Detail: the task text plus this user's review context.
 
     The answer keys (required_patterns / forbidden_patterns / expected_output)
     are not part of this model: the detail query does not even read them.
@@ -94,6 +122,10 @@ class ExerciseDetailOut(ExerciseListItemOut):
     prompt: str
     starter_code: str
     visible_tests: list[ExerciseVisibleTestOut]
+    review: ExerciseReviewOut | None = Field(
+        default=None,
+        description="当前用户在这道题上的复习上下文；错题本没有这一行时为 null",
+    )
 
 
 class SubmissionCreateRequest(BaseModel):
@@ -168,6 +200,7 @@ __all__ = [
     "ExerciseDetailOut",
     "ExerciseListItemOut",
     "ExerciseListResponse",
+    "ExerciseReviewOut",
     "ExerciseVisibleTestOut",
     "RECENT_LIMIT_DEFAULT",
     "RECENT_LIMIT_MAX",

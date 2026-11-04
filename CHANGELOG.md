@@ -5,6 +5,29 @@
 
 ## [Unreleased]
 
+## [0.1.16] — 2026-11-04
+
+打通「错题 → 复习 → 练习」的界面闭环：练习页此前不知道自己是不是一道复习题。
+
+### Added
+
+- **`GET /exercises/{id}` 新增 `review` 字段**（无复习项时为 `null`）：`status` / `due` / `streak` / `interval_days` / `next_review_on` / `last_result` / `last_reviewed_at`。
+- 练习详情页新增复习横幅：到期时提示「今天就是它的复习日」，未到期时显示「下次复习 YYYY-MM-DD · 当前间隔 N 天 · 连续答对 N 次」，并链接到错题本。
+
+### 设计要点
+
+- `due` 与错题本列表**复用同一个时区口径**（`review.local_today` + `users.timezone`），没有第二套时钟，也不用 UTC 直接比较。
+- 查询用同一条 SQL 的 `LEFT JOIN LATERAL ... ORDER BY ri.id DESC LIMIT 1`，不增加往返；唯一约束保证至多一行。
+- `status='done'` 仍返回 `review` 块（`due=false`），**只有「没有行」才是 `null`**——不凭猜测造空对象。前端只在 `status='pending'` 时渲染横幅，已完成的复习不会显示成待复习。
+- `POST /exercises/{id}/submissions` 的响应、练习列表、迁移与依赖均未改动。
+
+### Verified
+
+- 真实接口：`exercises/2` 返回 pending 行（streak 0 / 间隔 1 天 / 下次 11-05，`due=false` 与 `local_today=11-04` 一致）；`exercises/1` 返回 `review: null`。
+- 4 条新集成用例：有行、无行、**跨用户隔离**、`due` 的两条日期边界（今天 / 明天）全部通过。
+- 浏览器：打开 `/practice/23` 渲染「这道题在错题本里 / 连续答对 1 次 / 下次复习 2026-11-07 / 当前间隔 3 天」，Console 0 报错。
+- `134 passed`（单元）/ `140 passed`（集成）/ `ruff` 干净 / 文档一致性「全部一致」。
+
 ## [0.1.15] — 2026-11-04
 
 补上 README 长期承认的一个缺口：**诊断只给分数、不给解析**。

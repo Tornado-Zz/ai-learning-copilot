@@ -196,6 +196,32 @@ export function ExerciseView({ exerciseId }: { exerciseId: string }) {
         </p>
       </header>
 
+      {exercise.review !== null && exercise.review.status === "pending" ? (
+        <Alert
+          tone={exercise.review.due ? "warning" : "accent"}
+          title={exercise.review.due ? "这是一道到期复习题" : "这道题在错题本里"}
+        >
+          <p>
+            {exercise.review.due
+              ? "今天就是它的复习日。"
+              : "还没到复习日，随时可以提前重做。"}
+            连续答对 {String(exercise.review.streak)} 次；
+            {exercise.review.due
+              ? "再答对一次即推进到下一间隔。"
+              : "下次复习 " + exercise.review.nextReviewOn + "。"}
+            {exercise.review.intervalDays > 0
+              ? "当前间隔 " + String(exercise.review.intervalDays) + " 天。"
+              : null}
+          </p>
+          <p className="mt-1 text-muted">
+            错题连续通过 3 次后转为完成，不再占用周计划额度。
+            <Link href="/review" className="ml-1 underline hover:text-fg">
+              查看全部错题
+            </Link>
+          </p>
+        </Alert>
+      ) : null}
+
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">
           <Card>
