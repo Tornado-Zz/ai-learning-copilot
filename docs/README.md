@@ -6,6 +6,7 @@
 
 | 文档 | 内容 | 什么时候读 |
 | --- | --- | --- |
+| [GETTING_STARTED.md](GETTING_STARTED.md) | 第一次使用：从空数据库到交出第一个作品，每步的预期结果与耗时 | 第一次跑起来之后，想知道接下来点什么 |
 | [PRD.md](PRD.md) | 产品定位、痛点、MVP 范围、用户故事、可验证验收条件、指标 | 想知道「为什么做这个产品」 |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | 前后端架构、模块边界、数据流、DeepSeek 调用流程、错误码与安全 | 想知道「系统怎么拼起来的」 |
 | [DATABASE.md](DATABASE.md) | 数据模型设计、ER 图、索引、约束清单、迁移策略 | 想改表结构之前 |
