@@ -94,6 +94,32 @@ select exercise_id, streak, interval_days, next_review_on, status from review_it
 select id, status, verdict, reviewer, reviewed_at from capstone_submissions;
 ```
 
+## 9. 空数据库上的新用户路径（v0.1.7 实测）
+
+把 API 指向一个**全新迁移的数据库**（`tz_source=default`、零进度），按新用户视角走一遍。
+这一步不能省：种子用户的学习历史会掩盖「第一次使用」才会暴露的问题。
+
+| 阶段 | 期望 | 实测（2026-11-04） |
+| --- | --- | --- |
+| 首次打开 `/` | 明确提示「需要先确认时区」+ 去档案页入口，不展示任何按周/按天的推导 | 一致；Console 0 报错 |
+| 后端闸门 | `/study-plan`、`/study-plan/preview` 返回 409 `CONFLICT`（`reason=timezone_not_confirmed`），其余端点 200 | 一致 |
+| 建档 | 不勾「我确认我的时区是…」时拒绝保存并说明原因；勾选后 `users.timezone_source` 变 `user_confirmed` | 一致 |
+| 诊断（全部答对） | 六域各 100% → **一律 L2**（≥85% 授 L2，且诊断永不授 L3/L4），状态 `established` | 6 × `L2 · 能跟做 · 已建立等级` |
+| 诊断（多数答错） | 未达 60% 的域显示「L0 · 已测未达标」，且**不降低**此前已建立的等级 | 见第 2 节 |
+| 首次生成计划 | 当日总额度内排课；L2 时 rationale 写「每日练习上限 2」；过去的日期不补排 | 11-02 为 0 项；11-04 为 20+25+15=60 |
+| 完成一节课 | `learning_progress=completed/100`，本周对应计划项**同事务**变 `done` | 一致 |
+| 结业要求联动 | `lessons_completed` 与 `plan_items_done` 立即反映，`domains_at_l2=6` 达标 | 1/5、1/5、6/3 met |
+
+复现方式：
+
+```powershell
+docker exec ai-learning-copilot-postgres psql -U copilot -d postgres -c 'CREATE DATABASE copilot_fresh'
+# 用 DATABASE_URL 指向 copilot_fresh 起 API（uvicorn 读环境变量）
+# 走完路径后：DROP DATABASE copilot_fresh WITH (FORCE)
+```
+
+> 注意：用完务必删掉临时库，并且**不要在持久 shell 里留下 `DATABASE_URL`**（`smoke.ps1` 会提示）。
+
 ## 已知的体验摩擦（未修，记录在案）
 
 1. **草稿提交需要两步**：草稿行只有「编辑草稿」，要提交得先进编辑态再点「提交」。功能正确，但比直接提供「提交」按钮多一次点击。
