@@ -5,6 +5,27 @@
 
 ## [Unreleased]
 
+## [0.1.10] — 2026-11-04
+
+把「文档一致性」从人工比对变成**可执行检查**。
+
+### Added
+
+- `scripts/docs-consistency-check.mjs`：零依赖，只读源码树（不需要服务或数据库），从四个来源推导真值并与文档里的数字声明比对——
+  - 迁移 head：`revision` / `down_revision` 图里没有后继的那个；
+  - 迁移版本数：`migrations/versions` 下的文件数；
+  - 业务表数：`CREATE TABLE` 去重后的表名数；
+  - 接口操作数：`@router.<verb>` 装饰器数量；
+  - 页面路由数：`src/app` 下的 `page.tsx` 数量。
+  不一致时按 `文件:行号` 逐条报出并退出码 1。
+- 接入 `scripts/ci.ps1`（在 job 之前单独一步）与 `.github/workflows/ci.yml` 的 `web` job（只需要 Node）。
+
+### Verified
+
+- **双向验证**：把 README 的 `15 张业务表` 改成 `16` → 输出 `README.md:7 业务表数 文档写 16，实际 15`、退出码 1；改回 → `文档一致性：全部一致`、退出码 0。
+- 工作流用 pyyaml 解析确认结构：`api` 8 步、`web` 7 步（含新增的 `Docs consistency`）。
+- `scripts/ci.ps1` 十一步全绿：docs consistency → uv sync --locked → ruff → 迁移 → head 校验 → 130 单元 → 127 集成 → npm ci → tsc → lint → build。
+
 ## [0.1.9] — 2026-11-04
 
 文档一致性总检：把 7 份文档与当前实现逐条对齐。**这一轮没有改任何代码**，只改说法。
