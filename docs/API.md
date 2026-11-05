@@ -362,6 +362,20 @@
 5. **`GET /ready` 与 `GET /health` 不走统一错误体**：它们返回各自的结构（就绪失败是 503 + `status=not_ready`），这是刻意保留的运维语义。
 6. **逐题解析**：`GET /diagnostics/attempts/{id}` 的 `questions[].explanation` 自 v0.1.15 起返回该题解析（20 题全覆盖，60–80 字）。**发卷接口 `GET /diagnostics/paper` 不返回该字段**，避免提交前泄题；`question_set_version` / `rule_version` 未变（解析不参与评分）。
 
+
+## 6.1 刻意不接界面的四个端点
+
+界面并非每个端点都调用。以下四条**有实现、有测试、写在清单里**，但前端从不调用——这是设计选择，**不是遗漏**。改动前请先读这里的理由。
+
+| 端点 | 界面为何不用 |
+| --- | --- |
+| `POST /review/items/{item_id}/result` | 它接受调用方自报 `passed`，直接推进间隔。界面的复习推进走的是**重做那道练习并通过判题**（`schedule_after_submission`，evidence 档），因为自报「我记住了」不足以作为证据。**不要为了「方便」给它加按钮**——那会让错题本变成点几下就清空。 |
+| `GET /study-plan/preview` | 与 `GET /study-plan` 返回同构，界面直接用后者。保留它是为了在**不落库**的前提下拿到同一份推导结果（脚本、排障、将来的「生成前预览」）。 |
+| `GET /submissions/recent` | 界面按练习维度展示历史（`GET /exercises/{id}/submissions`），跨练习的时间线暂无产品需求。端点保留但无入口，已在 `README` 的已知限制里写明。 |
+| `POST /knowledge/ingest` | 抓取入库默认关闭，开启后也只接受 `KNOWLEDGE_DOC_URLS` 白名单内的官方文档页。它是**运维动作**，不该出现在学习界面里；关闭时返回 403。 |
+
+如何自查还有没有这类「后端有、界面没接」的缺口：把 `GET /openapi.json` 的每个操作与 `apps/web/src/lib/*.ts` 里的路径构造函数逐一对照。**注意**：前端用函数拼路径，直接文本匹配会产生大量假阳性（实测 37 个操作里有 9 个误报），必须回到 lib 里的构造函数确认。
+
 ---
 
 ## 7. 相关文档
