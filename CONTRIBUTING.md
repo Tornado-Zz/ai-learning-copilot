@@ -143,6 +143,87 @@ PR 描述请包含：**做了什么 / 为什么 / 怎么验证的（贴关键命
 
 ---
 
-## 7. 许可证
+## 7. 踩过的坑（真实发生过，别重复）
+
+这一节不是理论清单：每一条都在这个仓库里**真的发生过**，有的还发生了不止一次。踩之前先读，能省掉半小时。
+
+### 7.1 前端：改了代码却看到旧界面
+
+`next start` 提供的是**构建产物**，不是源码。改完 `apps/web/src/**` 而不重新构建，浏览器里永远是旧界面——你会以为是逻辑 bug，实际只是没构建。**曾经为此浪费过一整轮。**
+
+```powershell
+# 正确顺序：先停，再构建，再起
+Get-NetTCPConnection -LocalPort 3000 | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force }
+cd apps\web; npm run build; npm run start
+```
+
+截图时尤其注意：侧栏版本号与「服务版本」两处都应为当前版本，否则说明前后端有一边是旧的。
+
+### 7.2 服务在跑时不要安装依赖或构建
+
+`npm ci` 会先删 `node_modules`，而 `next start` 正持有 `node_modules/@next/swc-*.node`，`unlink` 报 **EPERM**，还会把正在跑的前端一起弄坏。在 `next start` 运行时跑 `npm run build` 也会让 `.next` 混入新旧 chunk。
+
+`scripts/ci.ps1` 已经会在 3000/8000 被占用时拒绝执行——**不要绕过它自己直接跑 npm**（那样发生过一次，把 `node_modules` 弄坏后重新装了 675 个包）。
+
+### 7.3 Windows：`npm` 是 `npm.cmd`，不能直接 spawn
+
+- Node 18.20 起（CVE-2024-27980）**默认拒绝**执行 `.cmd`/`.bat`，`execFileSync('npm', …)` 会 ENOENT。要传 `shell: true`。
+- `Start-Process -FilePath 'npm'` 在 PowerShell 里**静默什么都不做**。要用 `cmd.exe /c npm run start`。
+
+两种表现不同，根因是同一个。
+
+### 7.4 PowerShell 5.1 脚本必须是纯 ASCII
+
+Windows PowerShell 5.1 会把**无 BOM** 的脚本按 ANSI 读。`.ps1` 里写中文注释会解析失败，报错还很难懂。`scripts/*.ps1` 一律 ASCII，中文字符串放到打印时也会乱码——要输出中文请用 Node 或 Python 脚本。
+
+### 7.5 改了 `pyproject.toml` 就要 `uv lock`
+
+CI 跑 `uv sync --locked`；只要 `pyproject.toml` 变了（哪怕只是版本号或 description），锁文件就失效，**CI 必红**。改完立刻：
+
+```powershell
+cd apps\api; uv lock; uv lock --check; uv sync --locked
+```
+
+### 7.6 版本号有四处，改一处等于没改
+
+`app-version.ts`（界面）、`package.json`、`pyproject.toml`、`app/__init__.py`（`GET /health` 的 `version` 与 OpenAPI `info.version`）。第四处曾**落后 17 个版本**而无人察觉，界面一直显示旧服务版本。`scripts/docs-consistency-check.mjs` 会断言四处一致。
+
+### 7.7 测试别依赖「共享用户的历史」
+
+种子用户带着真实学习记录（完成的课程、终态计划行、到期复习、提交）。直接断言「今天应该排出 2 道练习」会随使用漂移，某天突然红。两类正确写法：
+
+- 需要自带数据 → `tests/conftest.py` 的 `create_isolated_learner()`；
+- 需要固定日期 → 走服务层并传 `today_override=`，别走 HTTP（HTTP 用真实时钟）。
+
+### 7.8 写死「周几」的测试会随日历漂移
+
+`study_days=[3]`（周三）在周四跑就排不出东西。更糟的是**空过**：场景要求「周二还没到」，周二过了之后断言恒真，测试通过但什么都没检验。用 `conftest` 的 `calendar_today()` / `future_weekdays()`，场景无法复现时显式 `pytest.skip` 并写明原因。
+
+### 7.9 生成列不能直接 INSERT
+
+`user_skill_levels.evidence_strength` 是**生成列**，插入时会报错；构造测试数据时只写可写列，并用 `verification_method='static_rule'` 满足 `ck_usk_strength_none_level0`。
+
+### 7.10 迁移落地瞬间，`alembic current` 不再打印 `(head)`
+
+迁移文件已存在但库里还没 upgrade 时，冒烟检查的「迁移到 head」一项会失败——这是**正确行为**，先 `alembic upgrade head` 再复跑。
+
+### 7.11 路径与 shell 的两个小陷阱
+
+- 本仓库路径含中文，Node 里取 `new URL(...).pathname` 会得到 `%E8%87%AA…`，**读不到目录**——用 `fileURLToPath()`。
+- `git commit -m "多行带引号的消息"` 在 PowerShell 里容易把引号吃掉，用 `git commit -F 文件`。
+
+### 7.12 Docker Desktop 会自己停
+
+集成测试突然大面积 `ConnectionRefusedError` 或 `docker API … not found`，先看 Docker 是否还活着：
+
+```powershell
+docker info; docker compose -f infra\docker-compose.yml up -d
+```
+
+这不是代码问题，别去改测试。
+
+---
+
+## 8. 许可证
 
 提交即表示你同意以 [MIT](LICENSE) 许可发布你的贡献。

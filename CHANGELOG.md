@@ -5,6 +5,33 @@
 
 ## [Unreleased]
 
+## [0.1.23] — 2026-11-04
+
+把**只有对话里才知道的事**写进仓库：`CONTRIBUTING.md` 新增第 7 节「踩过的坑」，12 条，每条都真的在本仓库发生过。
+
+### 为什么要写
+
+这些问题不会出现在任何设计文档里，但每个新贡献者都会撞上，而且**症状与根因往往差得很远**——改完前端只看旧界面、`npm ci` 报 EPERM、CI 因锁文件失效必红、测试随星期几变红。这些知识原先只存在于开发者的记忆里，会随会话消失。
+
+### 收录内容
+
+1. **改了前端却看到旧界面**：`next start` 提供的是构建产物；（这一条曾浪费一整轮）
+2. **服务在跑时不要安装依赖或构建**：`npm ci` 删 `node_modules` 时被 `next start` 占用 → EPERM，还会弄坏正在跑的前端；
+3. **`npm` 在 Windows 是 `npm.cmd`**：Node ≥18.20 拒绝 spawn `.cmd`（需 `shell: true`），`Start-Process 'npm'` 静默无操作；
+4. **PowerShell 5.1 脚本必须纯 ASCII**：无 BOM 脚本按 ANSI 读，中文注释会解析失败；
+5. **改 `pyproject.toml` 就要 `uv lock`**：否则 `uv sync --locked` 让 CI 必红；
+6. **版本号有四处**：第四处（`app/__init__.py`）曾落后 17 个版本；
+7. **测试别依赖共享用户的历史**：用 `create_isolated_learner()`；
+8. **写死「周几」的测试会随日历漂移**：更糟的是越过目标日后**空过**，用 `calendar_today()` / `future_weekdays()` 或显式 skip；
+9. **生成列不能直接 INSERT**（`evidence_strength`）；
+10. **迁移落地瞬间 `alembic current` 不打印 `(head)`**：这是正确行为；
+11. **路径含中文时 `URL.pathname` 会被百分号编码**；`git commit -m` 带引号会被吃掉 → 用 `-F`；
+12. **Docker Desktop 会自己停**：集成测试大面积 `ConnectionRefusedError` 时先看 Docker，别改测试。
+
+### Verified
+
+- 文档一致性检查通过；README 文档索引已指向新内容。
+
 ## [0.1.22] — 2026-11-04
 
 系统排查**时间脆弱性**：上一轮发现「写死周三」的用例会随日期变红，这轮把同类隐患一次清掉。

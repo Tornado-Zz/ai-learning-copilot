@@ -236,7 +236,7 @@ CI 只有两个 job：`api`（PostgreSQL service + `uv sync --locked` + `ruff ch
 | --- | --- |
 | [docs/GETTING_STARTED.md](docs/GETTING_STARTED.md) | **第一次使用**：从空数据库到交出第一个作品，每步的预期结果与耗时 |
 | [docs/API.md](docs/API.md) | **37 个操作 / 34 条路径的实测清单**：方法、路径、关键字段、成功/错误码、统一错误体与 `request_id` |
-| [CONTRIBUTING.md](CONTRIBUTING.md) | 本地启动两条命令、测试命令、Conventional Commits、PR 检查清单、禁止事项 |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | 本地启动两条命令、测试命令、Conventional Commits、PR 检查清单、禁止事项，以及 **12 条真实踩过的坑**（旧构建、EPERM、uv lock、日期脆弱…） |
 | [SECURITY.md](SECURITY.md) | 安全边界（无鉴权、不执行用户代码、Key 处理）、依赖告警的真实情况、自查命令 |
 | [docs/README.md](docs/README.md) | 文档索引；`docs/reports/` 下各阶段报告的导航 |
 | [docs/PRD.md](docs/PRD.md) | 产品定位、痛点、MVP 范围、用户故事、可验证验收条件、指标 |
