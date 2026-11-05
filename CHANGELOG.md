@@ -5,6 +5,38 @@
 
 ## [Unreleased]
 
+## [0.1.38] — 2026-11-05
+
+把发布动作**收敛成一条命令**：新增 `scripts/publish.ps1`。
+
+### Added
+
+`scripts/publish.ps1`——只需给一个仓库地址：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\publish.ps1 `
+  -RepoUrl https://github.com/<账号>/<仓库名>.git
+```
+
+依次执行：**工作区是否干净** → **扫描全部历史的密钥**（命中即中止）→ 文档一致性 → 单元测试 → 配置 `origin` → 推送 `main` 与全部标签。
+
+- **从不 force push**；
+- 远端必须是已存在且为空的仓库，否则在推送步中止并说明原因；
+- 结束时打印推送后的三项核对（标签数、Actions 两个 job、README 截图）。
+
+### Verified（拒绝路径都实测过）
+
+| 场景 | 结果 |
+| --- | --- |
+| 工作区有未跟踪文件 | 第 1 步即中止，提示「working tree is not clean (1 entries)」 |
+| 全历史密钥扫描 | `0 命中`（有命中会中止并提示先轮换） |
+| 脚本自身语法 | PowerShell Parser 解析 `parse OK` |
+| 非 ASCII 字符 | 0（PowerShell 5.1 要求） |
+
+### 说明
+
+推送成功这一条**无法在本地验证**（没有远端）。能验证的是它前面的每一步都按预期中止或通过；真正的推送要等你给仓库地址。
+
 ## [0.1.37] — 2026-11-05
 
 发布前预检：**CI 从未在 GitHub 上真正跑过**，推送后如果它红，第一次发布就砸了。这轮把工作流与本机脚本对齐并逐项核对。

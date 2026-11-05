@@ -30,9 +30,19 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\smoke.ps1   # 18 �
 2. 在本仓库根目录执行：
 
 ```powershell
+# 一条命令：先自检，再配置 origin 并推送 main 与全部标签（从不 force push）
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\publish.ps1 `
+  -RepoUrl https://github.com/<你的账号>/<仓库名>.git
+```
+
+脚本会依次：工作区是否干净 → **扫描全部历史的密钥**（命中即中止）→ 文档一致性 → 单元测试 → 配置 origin → 推送。加 `-SkipTests` 可跳过测试。
+
+想手动执行等价命令：
+
+```powershell
 git remote add origin https://github.com/<你的账号>/<仓库名>.git
 git push -u origin main
-git push origin --tags          # 推送全部 37 个标签；也可只推某一个：git push origin v0.1.36
+git push origin --tags          # 推送全部 37 个标签
 ```
 
 3. 推送后确认三件事：
