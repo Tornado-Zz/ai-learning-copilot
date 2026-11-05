@@ -18,7 +18,8 @@ import {
   parseAck,
   parseLessonDetail,
 } from "@/lib/learning";
-import type { LessonDetail } from "@/lib/learning";
+import { LESSONS_PATH, parseLessons } from "@/lib/learning";
+import type { LessonDetail, LessonSummary } from "@/lib/learning";
 
 type ViewState =
   | { status: "loading" }
@@ -28,6 +29,12 @@ type ViewState =
 type Busy = null | "start" | "complete";
 
 export function LessonDetailView({ lessonId }: { lessonId: string }) {
+  // 上一课 / 下一课：线性课程最常见的动作是「读完这节接着读下一节」，
+  // 但页面原本只有「返回课程列表」，等于每次都多一次跳转。
+  const [navigation, setNavigation] = useState<{
+    prev: LessonSummary | null;
+    next: LessonSummary | null;
+  } | null>(null);
   const [state, setState] = useState<ViewState>({ status: "loading" });
   const [reloadToken, setReloadToken] = useState(0);
   const [revealed, setRevealed] = useState<Record<number, boolean>>({});
@@ -40,9 +47,10 @@ export function LessonDetailView({ lessonId }: { lessonId: string }) {
   useEffect(() => {
     let active = true;
     void (async () => {
-      const result = await apiRequest<LessonDetail>(lessonPath(lessonId), {
-        parse: parseLessonDetail,
-      });
+      const [result, listResult] = await Promise.all([
+        apiRequest<LessonDetail>(lessonPath(lessonId), { parse: parseLessonDetail }),
+        apiRequest<LessonSummary[]>(LESSONS_PATH, { parse: parseLessons }),
+      ]);
       if (!active) {
         return;
       }
@@ -51,6 +59,20 @@ export function LessonDetailView({ lessonId }: { lessonId: string }) {
         return;
       }
       setState({ status: "ready", lesson: result.data });
+      // 导航只是锦上添花：列表拿不到就不显示，绝不影响课程正文。
+      if (listResult.ok && listResult.data.length > 0) {
+        const index = listResult.data.findIndex((item) => item.id === result.data.id);
+        setNavigation(
+          index < 0
+            ? null
+            : {
+                prev: index > 0 ? listResult.data[index - 1] : null,
+                next: index < listResult.data.length - 1 ? listResult.data[index + 1] : null,
+              },
+        );
+      } else {
+        setNavigation(null);
+      }
     })();
     return () => {
       active = false;
@@ -407,12 +429,30 @@ export function LessonDetailView({ lessonId }: { lessonId: string }) {
             </span>
           </div>
 
-          <Link
-            href="/learn"
-            className="inline-block rounded-control text-[12px] font-medium text-muted hover:text-fg"
-          >
-            返回课程列表
-          </Link>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+            {navigation?.prev ? (
+              <Link
+                href={"/learn/" + String(navigation.prev.id)}
+                className="rounded-control text-[12px] font-medium text-muted hover:text-fg"
+              >
+                ← 上一课：{navigation.prev.title}
+              </Link>
+            ) : null}
+            {navigation?.next ? (
+              <Link
+                href={"/learn/" + String(navigation.next.id)}
+                className="rounded-control text-[12px] font-medium text-accent hover:underline"
+              >
+                下一课：{navigation.next.title} →
+              </Link>
+            ) : null}
+            <Link
+              href="/learn"
+              className="rounded-control text-[12px] font-medium text-muted hover:text-fg"
+            >
+              返回课程列表
+            </Link>
+          </div>
         </CardBody>
       </Card>
     </div>
