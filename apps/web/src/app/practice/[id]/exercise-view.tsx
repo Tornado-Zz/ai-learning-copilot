@@ -14,17 +14,21 @@ import { formatMinutes } from "@/lib/learning";
 import { formatDateTime } from "@/lib/labels";
 import {
   EVIDENCE_DISCLAIMER,
+  exercisesByLessonPath,
   exercisePath,
   exerciseSubmissionsPath,
   parseExerciseDetail,
+  parseExerciseList,
   parseSubmissionList,
   parseSubmissionResult,
+  practicePagePath,
   submissionStateLabel,
   verificationMethodLabel,
 } from "@/lib/exercises";
 import type {
   ExerciseDetail,
   ExerciseDetailPayload,
+  ExerciseSummary,
   SubmissionRecord,
   SubmissionResult,
 } from "@/lib/exercises";
@@ -51,6 +55,7 @@ export function ExerciseView({ exerciseId }: { exerciseId: string }) {
   const [selfReportedPassed, setSelfReportedPassed] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<SubmissionResult | null>(null);
+  const [siblings, setSiblings] = useState<ExerciseSummary[]>([]);
   const [submitFailure, setSubmitFailure] = useState<ApiFailure | null>(null);
   const initializedFor = useRef<string | null>(null);
 
@@ -93,6 +98,29 @@ export function ExerciseView({ exerciseId }: { exerciseId: string }) {
       active = false;
     };
   }, [exerciseId, reloadToken]);
+
+  // 同课练习：只用来在提交后给出「继续下一题」。失败就保持空数组，不影响作答。
+  useEffect(() => {
+    if (detail.status !== "ready") {
+      return;
+    }
+    const lessonId = detail.exercise.lessonId;
+    if (lessonId === "") {
+      return;
+    }
+    let active = true;
+    void (async () => {
+      const result = await apiRequest<ExerciseSummary[]>(exercisesByLessonPath(lessonId), {
+        parse: parseExerciseList,
+      });
+      if (active && result.ok) {
+        setSiblings(result.data);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [detail]);
 
   const reload = useCallback(() => {
     setDetail((current) => (current.status === "error" ? { status: "loading" } : current));
@@ -168,6 +196,10 @@ export function ExerciseView({ exerciseId }: { exerciseId: string }) {
   }
 
   const exercise = detail.exercise;
+  // 同一节课的下一题：用 lesson_id 拉一次同课练习，算出排在当前题之后的那道。
+  // 仅用于提交后的「下一步」引导；拿不到就不显示，不影响作答。
+  const currentIndex = siblings.findIndex((entry) => entry.id === exercise.id);
+  const nextExercise = currentIndex >= 0 ? (siblings[currentIndex + 1] ?? null) : null;
   const canSubmit = !submitting && code.trim().length > 0;
   const disabledReason = submitting
     ? "正在提交，请稍候；请求返回前按钮保持禁用，避免重复提交。"
@@ -610,6 +642,55 @@ export function ExerciseView({ exerciseId }: { exerciseId: string }) {
           ) : null}
         </CardBody>
       </Card>
+
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-line pt-4">
+        <Link
+          href="/practice"
+          className="rounded-control text-[12px] font-medium text-muted hover:text-fg"
+        >
+          ← 返回练习列表
+        </Link>
+        {result !== null ? (
+          result.isPassed ? (
+            nextExercise ? (
+              <Link
+                href={practicePagePath(nextExercise.id)}
+                className="rounded-control text-[12px] font-medium text-accent hover:underline"
+              >
+                继续下一题：{nextExercise.title} →
+              </Link>
+            ) : (
+              <span className="text-[12px] text-muted">
+                这是本课最后一题；可以回周计划确认今天还有别的任务。
+              </span>
+            )
+          ) : (
+            <span className="text-[12px] text-muted">
+              没通过也很正常：回课程重读一遍，或去错题本看这道题被记在哪里。
+            </span>
+          )
+        ) : null}
+        {exercise.lessonId !== "" ? (
+          <Link
+            href={"/learn/" + exercise.lessonId}
+            className="rounded-control text-[12px] font-medium text-muted hover:text-fg"
+          >
+            回这节课复习
+          </Link>
+        ) : null}
+        <Link
+          href="/review"
+          className="rounded-control text-[12px] font-medium text-muted hover:text-fg"
+        >
+          错题本
+        </Link>
+        <Link
+          href="/plan"
+          className="rounded-control text-[12px] font-medium text-muted hover:text-fg"
+        >
+          周计划
+        </Link>
+      </div>
     </div>
   );
 }

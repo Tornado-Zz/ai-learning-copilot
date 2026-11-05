@@ -71,6 +71,8 @@ export type ExerciseDetail = {
   estimatedMinutes: number;
   difficulty: string;
   review: ExerciseReview | null;
+  // 后端详情里有 lesson_id；用它算「同一节课的下一题」，也用于「回课程复习」。
+  lessonId: string;
   // 判题要求的可读清单，顺序与后端判题顺序一致。判题失败时后端会按「第 N 项」引用它，
   // 因此这里必须按同样顺序展示编号 1..N；缺失时页面不显示清单，也不自行编造要求。
   requirements: string[];
@@ -466,6 +468,7 @@ export function parseExerciseDetail(body: unknown): ExerciseDetailPayload | null
       estimatedMinutes: readNumber(exercise, ["estimated_minutes", "estimatedMinutes"]) ?? 0,
       difficulty: readDifficulty(exercise, ["difficulty"]),
       review: parseExerciseReview(exercise.review),
+      lessonId: readId(exercise, ["lesson_id", "lessonId"]),
       requirements: readStringArray(exercise.requirements),
     },
     history,
