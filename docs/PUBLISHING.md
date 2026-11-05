@@ -24,6 +24,34 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\smoke.ps1   # 18 �
 | 文档一致性 | 全部一致（head `0016_sprint11_return_rule`，16 个迁移） |
 | 依赖基线 | 运行时 0 告警；开发依赖 16 条（均为 ESLint 链，见 `SECURITY.md`） |
 
+## 先看这一条：本机只能走 SSH，不能走 HTTPS
+
+实测（2026-11-05，本机）：
+
+| 通道 | 结果 |
+| --- | --- |
+| `https://github.com` （443） | **超时不可达**（21 秒后失败，无任何提示） |
+| `ssh github.com`（22） | **可达**（握手成功，只是还没有密钥） |
+| `ssh ssh.github.com`（443） | 可达 |
+| `https://api.github.com` | 可达（200） |
+
+结论：**在这台机器上用 `https://` 的地址推送一定失败**。要用 SSH 地址：
+
+```
+git@github.com:<你的账号>/<仓库名>.git
+```
+
+本机目前**没有 SSH 密钥**（`~/.ssh` 下只有 known_hosts）。首次推送前先做一次：
+
+```powershell
+ssh-keygen -t ed25519 -C "852604336@qq.com"     # 一路回车即可
+Get-Content $HOME\.ssh\id_ed25519.pub          # 复制这一整行
+```
+
+把复制到的公钥贴进 GitHub → Settings → SSH and GPG keys → New SSH key，然后用 `ssh -T git@github.com` 验证（出现 `Hi <账号>! You've successfully authenticated` 即成功）。
+
+`scripts/publish.ps1` 会**先探测这两条通道**：如果给的是 https 地址而 https 不可达，它会直接拒绝运行并打印应使用的 SSH 地址，不会让你等 20 秒再看到一句没头没尾的失败。
+
 ## 方式 A：你自己建仓库并推送（推荐）
 
 1. 在 GitHub 上新建一个**空仓库**（不要勾选 README / .gitignore / license，避免与本地冲突）。

@@ -5,6 +5,48 @@
 
 ## [Unreleased]
 
+## [0.1.39] — 2026-11-05
+
+发现并处理了一个**会让推送必然失败**的环境事实：本机只能走 SSH，走不了 HTTPS。
+
+### 实测（这台机器）
+
+| 通道 | 结果 |
+| --- | --- |
+| `https://github.com`（443） | **超时不可达**，21 秒后失败，无提示 |
+| `ssh github.com`（22） | **可达**（握手成功，缺密钥） |
+| `ssh ssh.github.com`（443） | 可达 |
+| `https://api.github.com` | 可达（200） |
+
+也就是说：照旧文档用 `https://github.com/...` 推送，**一定失败**，而且失败信息只有一句 `Failed to connect to github.com:443`，很容易被误判成仓库地址写错或权限问题。
+
+### Added
+
+- `scripts/publish.ps1` 新增**第 0 步：传输预检**——分别探测 https 443 与 ssh，给出可达状态；若给的是 https 地址而 https 不可达，**直接拒绝并打印应使用的 SSH 地址**，不让人白等 20 秒。
+- 若走 SSH 且 `~/.ssh` 下没有任何 `id_*` 密钥，脚本会提示先 `ssh-keygen` 并把公钥加进 GitHub。
+
+### Fixed（写脚本时踩到的两个 PowerShell 坑）
+
+1. **`git remote get-url origin` 在没有远端时往 stderr 写**，而 `$ErrorActionPreference='Stop'` 会把它当致命错误——脚本崩在第 5 步。改用 `git remote` 列表判断。
+2. **`& ssh ...` 的 stderr 同样会触发 `NativeCommandError`**——在探测函数内部临时把 `$ErrorActionPreference` 放宽为 `Continue`，并 `finally` 还原。
+
+### Verified
+
+| 场景 | 结果 |
+| --- | --- |
+| 工作区脏 | 第 1 步中止「working tree is not clean (N entries)」 |
+| 全历史密钥扫描 | `0 命中` |
+| https 地址（本机不可达） | 第 0 步即被拒绝，并打印 `git@github.com:<账号>/<仓库名>.git` |
+| SSH 地址 | 走到推送步，因无密钥失败，提示「仓库必须已存在且为空」 |
+| 脚本语法 / ASCII | Parser `parse OK`；非 ASCII 字符 0 |
+
+### 仍需你做的两件事
+
+1. 在 GitHub 建一个空仓库；
+2. 生成 SSH 密钥并把公钥加进 GitHub 账号（步骤写在 `docs/PUBLISHING.md` 顶部）。
+
+之后 `scripts/publish.ps1 -RepoUrl git@github.com:<账号>/<仓库名>.git` 一条命令即可。
+
 ## [0.1.38] — 2026-11-05
 
 把发布动作**收敛成一条命令**：新增 `scripts/publish.ps1`。
