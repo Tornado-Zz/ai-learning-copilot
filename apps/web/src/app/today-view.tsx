@@ -124,6 +124,24 @@ export function TodayView() {
           "。";
   }
 
+  // 今天没安排时，告诉学习者「下一项是什么、哪天」——比只说「没有安排」有用得多。
+  // 只用已返回的本周计划，不新增请求。
+  const nextUp =
+    state.status === "ready"
+      ? (() => {
+          const upcoming = state.plan.days
+            .filter((day) => day.date > state.today)
+            .sort((a, b) => (a.date < b.date ? -1 : 1));
+          for (const day of upcoming) {
+            const item = day.items.find((entry) => entry.status === "scheduled");
+            if (item) {
+              return { date: day.date, item };
+            }
+          }
+          return null;
+        })()
+      : null;
+
   // 任务 4：全页唯一的显眼引导入口。只用今天已有的计划项，不新增接口、不补占位任务。
   // 有 scheduled 项就「继续」它；否则退回第一项，文案改成通用入口，不改写任何数据。
   const nextEntry =
@@ -230,14 +248,34 @@ export function TodayView() {
                   <CardBody>
                     <EmptyState
                       title="今天没有安排"
-                      description="今天可能是非学习日，或本周计划还没有生成。"
+                      description={
+                        nextUp === null
+                          ? "今天可能是非学习日，本周剩余的学习日也都排满了。"
+                          : "今天可能是非学习日。下一项在 " +
+                            nextUp.date +
+                            "（" +
+                            (weekdayOfDate(nextUp.date) || "日期未知") +
+                            "）——" +
+                            planItemTitle(nextUp.item) +
+                            "。"
+                      }
                       action={
-                        <Link
-                          href="/plan"
-                          className="rounded-control border border-line-strong bg-surface px-3 py-1.5 text-[12px] font-medium text-fg"
-                        >
-                          打开周计划
-                        </Link>
+                        <div className="flex flex-wrap items-center justify-center gap-2">
+                          {nextUp?.item.targetHref ? (
+                            <Link
+                              href={nextUp.item.targetHref}
+                              className="rounded-control border border-accent bg-accent px-3 py-1.5 text-[12px] font-medium text-canvas"
+                            >
+                              先看下一项 →
+                            </Link>
+                          ) : null}
+                          <Link
+                            href="/plan"
+                            className="rounded-control border border-line-strong bg-surface px-3 py-1.5 text-[12px] font-medium text-fg"
+                          >
+                            打开周计划
+                          </Link>
+                        </div>
                       }
                     />
                   </CardBody>

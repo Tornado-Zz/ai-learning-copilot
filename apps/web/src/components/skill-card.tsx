@@ -46,6 +46,30 @@ export function basisSentence(skill: SkillView): string {
   return "该域尚无任何评估记录，系统不做推测。";
 }
 
+// 等级条：4 格，亮到第几格就是到几级。颜色随等级变化——L0 灰、L1 蓝、L2 绿、L3+ 更深。
+function levelFill(level: number): string {
+  if (level >= 3) {
+    return "bg-success";
+  }
+  if (level >= 2) {
+    return "bg-success";
+  }
+  if (level >= 1) {
+    return "bg-info";
+  }
+  return "bg-line-strong";
+}
+
+function stateTone(state: string): "accent" | "warning" | "neutral" {
+  if (state === "established") {
+    return "accent";
+  }
+  if (state === "assessed_below_threshold") {
+    return "warning";
+  }
+  return "neutral";
+}
+
 export function SkillCard({ skill }: { skill: SkillView }) {
   const established = skill.state === "established";
   return (
@@ -69,9 +93,23 @@ export function SkillCard({ skill }: { skill: SkillView }) {
         </span>
       </header>
       <div className="space-y-3 px-4 py-3">
+        <div className="flex items-center gap-1" aria-hidden="true">
+          {[1, 2, 3, 4].map((step) => (
+            <span
+              key={step}
+              className={cx(
+                "h-2 flex-1 rounded-full",
+                step <= skill.level ? levelFill(skill.level) : "bg-elevated",
+              )}
+            />
+          ))}
+          <span className="ml-1.5 shrink-0 font-mono text-[10px] text-muted">L{String(skill.level)}/4</span>
+        </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Tag tone={established ? "accent" : "neutral"}>{levelLabelForState(skill.level, skill.state)}</Tag>
-          <Tag>{stateLabel(skill.state)}</Tag>
+          <Tag tone={established ? "accent" : stateTone(skill.state)}>
+            {levelLabelForState(skill.level, skill.state)}
+          </Tag>
+          <Tag tone={stateTone(skill.state)}>{stateLabel(skill.state)}</Tag>
         </div>
         <dl className="space-y-1 text-[11px]">
           <div className="flex items-start justify-between gap-3">
