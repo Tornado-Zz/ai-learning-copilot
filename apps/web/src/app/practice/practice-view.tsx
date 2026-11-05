@@ -5,7 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/form";
 import { EvidenceLegend, EvidenceBadge, evidenceKind } from "@/components/evidence-badge";
 import { Alert, EmptyState, ErrorPanel, LoadingPanel } from "@/components/states";
-import { Card, CardBody, CardHeader, Tag } from "@/components/ui";
+import { Card, CardBody, CardHeader, Tag, cx } from "@/components/ui";
 import { apiRequest } from "@/lib/http";
 import type { ApiFailure } from "@/lib/http";
 import { LESSONS_PATH, formatMinutes, parseLessons } from "@/lib/learning";
@@ -73,6 +73,46 @@ function groupExercises(exercises: ExerciseSummary[], lessons: LessonSummary[]):
     });
   }
   return groups;
+}
+
+// 每道题的状态：未开始 / 已通过 / 未通过。左侧色条与标签都按它上色，
+// 让「哪些题还没做、哪些已经过了」在列表里一眼可见。
+function exerciseStatus(exercise: ExerciseSummary): {
+  key: "todo" | "passed" | "failed";
+  label: string;
+  bar: string;
+  tone: "neutral" | "success" | "danger";
+} {
+  const last = exercise.lastSubmission;
+  if (!last) {
+    return { key: "todo", label: "未开始", bar: "bg-line-strong", tone: "neutral" };
+  }
+  if (last.isPassed === true) {
+    return { key: "passed", label: "已通过", bar: "bg-success", tone: "success" };
+  }
+  if (last.isPassed === false) {
+    return { key: "failed", label: "未通过", bar: "bg-danger", tone: "danger" };
+  }
+  return { key: "todo", label: "结果未知", bar: "bg-warning", tone: "neutral" };
+}
+
+// 注意：difficulty 在后端是 1–5 的整数，但 lib/exercises.ts 已经把它映射成中文标签
+// （入门/基础/中等/进阶/挑战）。之前这里按数字解析，Number("入门") 是 NaN，
+// 于是难度徽标永远不显示——截图一直没变化才发现。现在按标签本身取色。
+const DIFFICULTY_TONE: Record<string, "info" | "warning" | "danger"> = {
+  入门: "info",
+  基础: "info",
+  中等: "warning",
+  进阶: "danger",
+  挑战: "danger",
+};
+
+function DifficultyPill({ value }: { value: string }) {
+  const tone = DIFFICULTY_TONE[value];
+  if (!tone) {
+    return null;
+  }
+  return <Tag tone={tone}>{value}</Tag>;
 }
 
 function lastSubmissionText(exercise: ExerciseSummary): string {
@@ -236,20 +276,26 @@ export function PracticeView() {
                   }
                 />
                 <ul className="divide-y divide-line">
-                  {group.exercises.map((exercise) => (
+                  {group.exercises.map((exercise) => {
+                    const status = exerciseStatus(exercise);
+                    return (
                     <li
                       key={exercise.id}
                       className="flex flex-wrap items-start justify-between gap-3 px-5 py-4"
                     >
-                      <div className="min-w-0">
-                        <Link
-                          href={practicePagePath(exercise.id)}
-                          className="text-[13px] font-medium text-fg hover:underline"
-                        >
-                          {exercise.title}
-                        </Link>
+                      <span aria-hidden="true" className={cx("mt-1 h-9 w-1 shrink-0 rounded-full", status.bar)} />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Link
+                            href={practicePagePath(exercise.id)}
+                            className="text-[13px] font-medium text-fg hover:underline"
+                          >
+                            {exercise.title}
+                          </Link>
+                          <Tag tone={status.tone}>{status.label}</Tag>
+                        </div>
                         <p className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-muted">
-                          {exercise.difficulty ? <Tag>{exercise.difficulty}</Tag> : null}
+                          {exercise.difficulty ? <DifficultyPill value={exercise.difficulty} /> : null}
                           <span>预计 {formatMinutes(exercise.estimatedMinutes)}</span>
                           {exercise.code ? (
                             <span className="font-mono">{exercise.code}</span>
@@ -271,7 +317,8 @@ export function PracticeView() {
                         </span>
                       </div>
                     </li>
-                  ))}
+                    );
+                  })}
                 </ul>
               </Card>
             ))}
