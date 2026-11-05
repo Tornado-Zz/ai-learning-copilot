@@ -46,7 +46,7 @@ export type LessonSummary = {
 };
 
 export type LessonSection = { heading: string; body: string };
-export type LessonExample = { title: string; code: string; note: string };
+export type LessonExample = { title: string; code: string; note: string; output: string };
 export type LessonCommonError = { wrong: string; why: string; fix: string };
 export type LessonSelfCheck = { question: string; answerHint: string };
 
@@ -342,13 +342,11 @@ function readExamples(value: unknown): LessonExample[] {
     if (!note && notes.length > 0) {
       note = notes.join("；");
     }
-    if (output) {
-      note = (note ? note + " " : "") + "预期输出：" + output;
-    }
     if (!code && !title) {
       continue;
     }
-    examples.push({ title, code, note });
+    // output 单独保留：页面上它是一块「运行输出」，和说明文字不是同一种东西。
+    examples.push({ title, code, note, output });
   }
   return examples;
 }

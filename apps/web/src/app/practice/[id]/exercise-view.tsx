@@ -268,14 +268,11 @@ export function ExerciseView({ exerciseId }: { exerciseId: string }) {
                     判题检查项 · 共 {String(exercise.requirements.length)} 项
                     （失败时按这里的编号指出第几项，与题面里的编号不是同一套）
                   </p>
-                  <ol className="mt-1 space-y-1">
+                  <ol className="mt-1.5 space-y-1.5 rounded-control border border-accent-line bg-accent-soft px-3 py-2.5">
                     {exercise.requirements.map((requirement, index) => (
-                      <li
-                        key={String(index)}
-                        className="flex gap-2 text-[12px] leading-relaxed text-fg"
-                      >
-                        <span className="shrink-0 font-mono text-[11px] text-muted tabular-nums">
-                          {String(index + 1)}.
+                      <li key={String(index)} className="flex gap-2 text-[12.5px] leading-relaxed text-fg">
+                        <span className="shrink-0 font-mono text-[11px] font-semibold text-accent tabular-nums">
+                          {String(index + 1)}
                         </span>
                         <span>{requirement}</span>
                       </li>
@@ -506,17 +503,31 @@ export function ExerciseView({ exerciseId }: { exerciseId: string }) {
                         {result.checks.map((check, index) => (
                           <li
                             key={index}
-                            className="rounded-control border border-line bg-surface px-2.5 py-2"
+                            className={
+                              check.passed
+                                ? "rounded-control border border-success-line bg-success-soft px-2.5 py-2"
+                                : "rounded-control border border-danger-line bg-danger-soft px-2.5 py-2"
+                            }
                           >
                             <div className="flex items-center justify-between gap-2">
-                              <span className="min-w-0 font-mono text-[12px] text-fg">
+                              <span className="flex min-w-0 items-center gap-1.5 font-mono text-[12px] text-fg">
+                                <span
+                                  aria-hidden="true"
+                                  className={
+                                    check.passed
+                                      ? "text-[13px] leading-none text-success"
+                                      : "text-[13px] leading-none text-danger"
+                                  }
+                                >
+                                  {check.passed ? "✓" : "✕"}
+                                </span>
                                 {check.name}
                               </span>
                               <span
                                 className={
                                   check.passed
-                                    ? "shrink-0 text-[11px] font-medium text-success-text"
-                                    : "shrink-0 text-[11px] font-medium text-danger-text"
+                                    ? "shrink-0 text-[11px] font-semibold text-success-text"
+                                    : "shrink-0 text-[11px] font-semibold text-danger-text"
                                 }
                               >
                                 {check.passed ? "通过" : "未通过"}

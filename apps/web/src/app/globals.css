@@ -18,6 +18,20 @@
   --color-success-text: var(--success-text);
   --color-warning-text: var(--warning-text);
   --color-danger-text: var(--danger-text);
+  --color-info: var(--info);
+  --color-info-text: var(--info-text);
+  --color-info-soft: var(--info-soft);
+  --color-info-line: var(--info-line);
+  --color-success-soft: var(--success-soft);
+  --color-success-line: var(--success-line);
+  --color-warning-soft: var(--warning-soft);
+  --color-warning-line: var(--warning-line);
+  --color-danger-soft: var(--danger-soft);
+  --color-danger-line: var(--danger-line);
+  --color-accent-line: var(--accent-line);
+  --color-code-bg: var(--code-bg);
+  --color-code-fg: var(--code-fg);
+  --color-code-muted: var(--code-muted);
   --radius-card: 8px;
   --radius-control: 6px;
   --container-content: 1200px;
@@ -43,6 +57,21 @@
   --warning-text: #b45309;
   --danger-text: #dc2626;
   --overlay-shadow: 0 8px 24px rgba(10, 10, 10, 0.08);
+  /* 语义色：讲义要把「目标 / 示例 / 坑 / 自检」区分开，不能全用同一种灰。 */
+  --info: #0369a1;
+  --info-text: #075985;
+  --info-soft: #f0f9ff;
+  --info-line: #bae6fd;
+  --success-soft: #f0fdf4;
+  --success-line: #bbf7d0;
+  --warning-soft: #fffbeb;
+  --warning-line: #fde68a;
+  --danger-soft: #fef2f2;
+  --danger-line: #fecaca;
+  --accent-line: #c7d2fe;
+  --code-bg: #0f172a;
+  --code-fg: #e2e8f0;
+  --code-muted: #94a3b8;
   color-scheme: light;
 }
 
@@ -60,6 +89,20 @@
   --warning-text: #d97706;
   --danger-text: #f87171;
   --overlay-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  --info: #38bdf8;
+  --info-text: #7dd3fc;
+  --info-soft: #0b1a24;
+  --info-line: #0e3a4f;
+  --success-soft: #071a10;
+  --success-line: #14532d;
+  --warning-soft: #1c1405;
+  --warning-line: #4a3208;
+  --danger-soft: #1c0a0a;
+  --danger-line: #4c1d1d;
+  --accent-line: #3730a3;
+  --code-bg: #0b1220;
+  --code-fg: #e2e8f0;
+  --code-muted: #94a3b8;
   color-scheme: dark;
 }
 

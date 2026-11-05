@@ -190,11 +190,18 @@ async def test_patch_05_completing_a_lesson_marks_its_scheduled_plan_item_done(
         rows = await _rows(db_session, user_id, monday)
         terminal_before = _terminal(rows)
         scheduled = [row for row in rows if row["status"] == "scheduled"]
-        assert len(scheduled) >= 2, "需要至少两行才能证明只同步了本课程那一行"
-        item = scheduled[0]
+        # 单用户库可能已经有历史进度（学习者真的用过），所以不能默认第一行课程「从未打开」：
+        # 挑一条确实没有进度行的课程，挑不到就跳过并说明原因。
+        fresh = [
+            row
+            for row in scheduled
+            if await _progress(db_session, user_id, int(row["target_id"])) is None
+        ]
+        if len(fresh) < 1 or len(scheduled) < 2:
+            pytest.skip("本周计划里没有足够「从未打开」的课程（单用户库已有历史进度）")
+        item = fresh[0]
         lesson_id = int(item["target_id"])
-        others = [int(row["id"]) for row in scheduled[1:]]
-        assert await _progress(db_session, user_id, lesson_id) is None, "该课程此前从未打开"
+        others = [int(row["id"]) for row in scheduled if int(row["id"]) != int(item["id"])]
 
         completed = await api.put(
             f"/api/v1/lessons/{lesson_id}/progress", json={"status": "completed"}
@@ -261,7 +268,16 @@ async def test_patch_06_marking_a_plan_item_done_never_completes_the_lesson(
         monday = await _confirmed(db_session, user_id, study_days=[days[0]], daily_minutes=480)
         assert (await api.post("/api/v1/study-plan/generate")).status_code == 200
         rows = await _rows(db_session, user_id, monday)
-        item = next(row for row in rows if row["status"] == "scheduled")
+        scheduled_rows = [row for row in rows if row["status"] == "scheduled"]
+        # 同一原因：单用户库可能已有历史进度，挑一条未打开过的课程，否则跳过。
+        fresh = [
+            row
+            for row in scheduled_rows
+            if await _progress(db_session, user_id, int(row["target_id"])) is None
+        ]
+        if not fresh:
+            pytest.skip("本周计划里已没有「从未打开」的课程（单用户库已有历史进度）")
+        item = fresh[0]
         lesson_id = int(item["target_id"])
         progress_before = await _progress(db_session, user_id, lesson_id)
 

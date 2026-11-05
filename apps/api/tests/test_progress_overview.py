@@ -48,7 +48,19 @@ LESSON_FACTS = text(
     """
 )
 SUBMISSION_COUNT = text("SELECT count(*) FROM submissions WHERE user_id = :user_id")
-AVERAGE_LEVEL = text("SELECT avg(level) FROM user_skill_levels WHERE user_id = :user_id")
+# user_skill_levels 是证据历史：同一域可能有多行（早期诊断 L0 + 后来的练习 L2）。
+# 能力平均分按**每个域当前那行**求平均，所以这里也先取每域当前行，不能直接 avg(level)。
+AVERAGE_LEVEL = text(
+    """
+    WITH current AS (
+        SELECT DISTINCT ON (skill_id) skill_id, level
+        FROM user_skill_levels
+        WHERE user_id = :user_id
+        ORDER BY skill_id, (assessment_state = 'established') DESC, created_at DESC, id DESC
+    )
+    SELECT avg(level) FROM current
+    """
+)
 SKILLS_WITH_LEVELS = text(
     """
     SELECT DISTINCT s.code

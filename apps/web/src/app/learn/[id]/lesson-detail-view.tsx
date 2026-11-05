@@ -7,6 +7,7 @@ import { Alert, ErrorPanel, LoadingPanel } from "@/components/states";
 import { Card, CardBody, CardHeader, Tag } from "@/components/ui";
 import { LessonExercises } from "@/components/lesson-exercises";
 import { AiTutorPanel } from "@/components/ai-tutor-panel";
+import { Callout, RichText } from "@/components/callout";
 import { apiRequest } from "@/lib/http";
 import type { ApiFailure } from "@/lib/http";
 import {
@@ -199,21 +200,18 @@ export function LessonDetailView({ lessonId }: { lessonId: string }) {
       ) : null}
 
       {lesson.objectives.length > 0 ? (
-        <Card>
-          <CardHeader title="学习目标" description="完成后应能独立做到的事，逐条来自课程内容。" />
-          <CardBody>
-            <ul className="space-y-1.5">
-              {lesson.objectives.map((objective, index) => (
-                <li key={index} className="flex items-start gap-2 text-[13px] leading-relaxed text-fg">
-                  <span className="mt-0.5 grid size-4 shrink-0 place-items-center rounded-[3px] border border-line bg-surface font-mono text-[10px] text-muted">
-                    {String(index + 1)}
-                  </span>
-                  <span className="min-w-0">{objective}</span>
-                </li>
-              ))}
-            </ul>
-          </CardBody>
-        </Card>
+        <Callout tone="accent" title="学完这一课，你应该能">
+          <ul className="space-y-1.5">
+            {lesson.objectives.map((objective, index) => (
+              <li key={index} className="flex items-start gap-2">
+                <span className="mt-1 grid size-4 shrink-0 place-items-center rounded-full bg-accent text-[10px] font-semibold text-white">
+                  {String(index + 1)}
+                </span>
+                <span className="min-w-0 leading-relaxed">{objective}</span>
+              </li>
+            ))}
+          </ul>
+        </Callout>
       ) : null}
 
       {lesson.sections.length > 0 ? (
@@ -221,14 +219,26 @@ export function LessonDetailView({ lessonId }: { lessonId: string }) {
           <CardHeader title="讲解" />
           <CardBody className="space-y-5">
             {lesson.sections.map((section, index) => (
-              <section key={index} className="space-y-1.5">
+              <section key={index} className="space-y-2 border-l-2 border-accent-line pl-4">
                 {section.heading ? (
-                  <h3 className="text-[13px] font-semibold tracking-tight text-fg">{section.heading}</h3>
+                  <h3 className="flex items-center gap-2 text-[13.5px] font-semibold tracking-tight text-fg">
+                    <span className="grid size-5 shrink-0 place-items-center rounded-[5px] bg-accent-soft font-mono text-[11px] font-semibold text-accent">
+                      {String(index + 1)}
+                    </span>
+                    {section.heading}
+                  </h3>
                 ) : null}
                 {section.body ? (
-                  <p className="whitespace-pre-line text-[13px] leading-relaxed text-muted">
-                    {section.body}
-                  </p>
+                  <div className="flex items-start gap-2">
+                    {section.heading ? null : (
+                      <span className="mt-1.5 grid size-5 shrink-0 place-items-center rounded-[5px] bg-accent-soft font-mono text-[11px] font-semibold text-accent">
+                        {String(index + 1)}
+                      </span>
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <RichText text={section.body} />
+                    </div>
+                  </div>
                 ) : null}
               </section>
             ))}
@@ -246,15 +256,35 @@ export function LessonDetailView({ lessonId }: { lessonId: string }) {
                   <figcaption className="text-[12px] font-medium text-fg">{example.title}</figcaption>
                 ) : null}
                 {example.code ? (
-                  <pre
-                    tabIndex={0}
-                    aria-label={"代码示例：" + (example.title || String(index + 1))}
-                    className="overflow-x-auto rounded-control border border-line bg-surface px-3 py-2.5"
-                  >
-                    <code className="font-mono text-[13px] leading-5 whitespace-pre text-fg">
-                      {example.code}
-                    </code>
-                  </pre>
+                  <div className="overflow-hidden rounded-control border border-code-bg bg-code-bg">
+                    <div className="flex items-center gap-2 border-b border-white/10 px-3 py-1.5">
+                      <span className="flex gap-1" aria-hidden="true">
+                        <span className="size-2 rounded-full bg-[#f87171]" />
+                        <span className="size-2 rounded-full bg-[#fbbf24]" />
+                        <span className="size-2 rounded-full bg-[#34d399]" />
+                      </span>
+                      <span className="font-mono text-[10px] tracking-wide text-code-muted">python</span>
+                    </div>
+                    <pre
+                      tabIndex={0}
+                      aria-label={"代码示例：" + (example.title || String(index + 1))}
+                      className="overflow-x-auto px-3 py-2.5"
+                    >
+                      <code className="font-mono text-[13px] leading-6 whitespace-pre text-code-fg">
+                        {example.code}
+                      </code>
+                    </pre>
+                  </div>
+                ) : null}
+                {example.output ? (
+                  <div className="rounded-control border border-success-line bg-success-soft px-3 py-2">
+                    <p className="mb-1 text-[10.5px] font-semibold tracking-wide text-success-text">
+                      运行输出
+                    </p>
+                    <pre className="overflow-x-auto font-mono text-[12.5px] leading-5 whitespace-pre text-fg">
+                      {example.output}
+                    </pre>
+                  </div>
                 ) : null}
                 {example.note ? (
                   <p className="text-[11px] leading-relaxed text-muted">{example.note}</p>
@@ -269,25 +299,40 @@ export function LessonDetailView({ lessonId }: { lessonId: string }) {
         <Card>
           <CardHeader title="典型错误" description="错误写法、原因与改法；不是必答项，先看懂再动手。" />
           <CardBody>
-            <ul className="divide-y divide-line">
+            <div className="space-y-3">
               {lesson.commonErrors.map((error, index) => (
-                <li key={index} className="space-y-1.5 py-3 first:pt-0 last:pb-0">
+                <Callout
+                  key={index}
+                  tone="warning"
+                  title={"坑 " + String(index + 1)}
+                  marker={
+                    <span className="text-[13px] leading-none" aria-hidden="true">
+                      ⚠
+                    </span>
+                  }
+                >
                   {error.wrong ? (
-                    <pre className="overflow-x-auto rounded-control border border-line bg-surface px-3 py-2">
-                      <code className="font-mono text-[13px] leading-5 whitespace-pre text-danger-text">
+                    <pre className="overflow-x-auto rounded-control border border-danger-line bg-danger-soft px-3 py-2">
+                      <code className="font-mono text-[12.5px] leading-5 whitespace-pre text-danger-text">
                         {error.wrong}
                       </code>
                     </pre>
                   ) : null}
                   {error.why ? (
-                    <p className="text-[12px] leading-relaxed text-muted">为什么错：{error.why}</p>
+                    <p className="text-[12.5px] leading-relaxed">
+                      <span className="font-semibold text-warning-text">为什么错：</span>
+                      {error.why}
+                    </p>
                   ) : null}
                   {error.fix ? (
-                    <p className="text-[12px] leading-relaxed text-fg">怎么改：{error.fix}</p>
+                    <p className="text-[12.5px] leading-relaxed">
+                      <span className="font-semibold text-success-text">怎么改：</span>
+                      {error.fix}
+                    </p>
                   ) : null}
-                </li>
+                </Callout>
               ))}
-            </ul>
+            </div>
           </CardBody>
         </Card>
       ) : null}
@@ -304,9 +349,15 @@ export function LessonDetailView({ lessonId }: { lessonId: string }) {
                 const open = revealed[index] === true;
                 const panelId = "self-check-answer-" + String(index);
                 return (
-                  <li key={index} className="rounded-control border border-line px-3 py-2.5">
+                  <li
+                    key={index}
+                    className="rounded-control border border-info-line bg-info-soft px-3 py-2.5"
+                  >
                     <p className="text-[13px] leading-relaxed text-fg">
-                      {String(index + 1)}. {check.question}
+                      <span className="mr-1.5 font-mono text-[11px] font-semibold text-info-text">
+                        Q{String(index + 1)}
+                      </span>
+                      {check.question}
                     </p>
                     <button
                       type="button"
