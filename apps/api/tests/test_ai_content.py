@@ -33,7 +33,7 @@ SPRINT9_REVISION = "0013_sprint9_practice_content"
 # 0014 只给 exercises 加 requirement_labels 并回填标签，不动课程与练习的正文：
 # 它仍然让 head 前移，所以「第二次 upgrade 不新增行」这条断言要跟着 head 走。
 LABELS_REVISION = "0014_sprint10_requirement_labels"
-HEAD_REVISION = "0015_sprint11_print_rule"
+HEAD_REVISION = "0016_sprint11_return_rule"
 PREVIOUS_REVISION = "0010_capstone_review_requires_reviewer"
 
 AI_LESSON_CODES = [
@@ -399,14 +399,16 @@ async def test_06_migration_is_idempotent_on_a_clean_database(migration_probe) -
             stored = stored_exercise[exercise["code"]]
             assert stored["content_version"] == 1, exercise["code"]
             assert stored["starter_code"] == exercise["starter_code"], exercise["code"]
-            # 0015 会给「要求打印但不检查 print」的题追加一条 print 规则，
-            # 因此库内规则要么与种子一致，要么正好多出那一条。
+            # 后续迁移会给题目追加「题面要求却没判」的规则（0015 补 print、0016 补 return）。
+            # 因此库内规则必须以种子为前缀，多出来的只能是这些已知的追加项。
             stored_patterns = json.loads(stored["required_patterns"])
             seeded_patterns = exercise["required_patterns"]
-            assert stored_patterns == seeded_patterns or stored_patterns == [
-                *seeded_patterns,
-                r"print\s*\(",
-            ], exercise["code"]
+            appended = stored_patterns[len(seeded_patterns) :]
+            assert stored_patterns[: len(seeded_patterns)] == seeded_patterns, exercise["code"]
+            assert set(appended) <= {r"print\s*\(", r"return\s+"}, (
+                exercise["code"],
+                appended,
+            )
             assert json.loads(stored["visible_tests"]) == exercise["visible_tests"]
 
 

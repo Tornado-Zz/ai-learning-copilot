@@ -38,7 +38,7 @@ LABEL_MAX_LENGTH = 40
 #   * 当前 head 是 136 条——0015 给 12 道「要求打印却未检查 print」的题各补一条规则。
 # 改内容时这两个数字都可能要同步。
 TOTAL_RULES_AFTER_0014 = 124
-TOTAL_RULES = 136
+TOTAL_RULES = 139
 TOTAL_EXERCISES = 22
 
 REQUIRED = [r"def\s+add\s*\(\s*\w+\s*,\s*\w+\s*\)", r"return\s+"]

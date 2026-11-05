@@ -1,4 +1,4 @@
-"""题面要求「打印」时，判题必须真的检查 print。
+"""题面要求的动作，判题必须真的检查（print / return 两例）。
 
 背景：22 道题里有 12 道在题面写着「打印结果」，但 required_patterns 从来没有
 print 规则——学习者一条 print 都不写也能判通过，题目声称的目标从未被检查。
@@ -37,6 +37,21 @@ async def test_every_exercise_that_asks_for_output_checks_print(
         and not any('print' in pattern for pattern in json.loads(row['required']))
     ]
     assert not missing, f'这些题要求打印却不检查 print：{missing}'
+
+
+async def test_every_exercise_that_asks_for_a_return_checks_return(
+    db_session: AsyncSession,
+) -> None:
+    """题面要求函数返回值，就必须有一条 return 规则（0016 之前这里有 3 道题漏判）。"""
+    rows = (await db_session.execute(SELECT_EXERCISES)).mappings().all()
+    missing = [
+        row['code']
+        for row in rows
+        if '返回' in row['prompt']
+        and any('def' in pattern for pattern in json.loads(row['required']))
+        and not any('return' in pattern for pattern in json.loads(row['required']))
+    ]
+    assert not missing, f'这些题要求返回值却不检查 return：{missing}'
 
 
 async def test_print_rule_has_a_matching_label(

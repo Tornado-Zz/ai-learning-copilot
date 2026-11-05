@@ -28,7 +28,7 @@ BASELINE_REVISION = "0002_sprint1a_identity_diagnostics"
 SPRINT3_REVISION = "0004_sprint3_exercises"
 # 0011 追加 a3/a4、0012 追加 a5/a6 四节 AI 课，0013 补 a2 编程实践两节，0014 给
 # exercises 加 requirement_labels 后 head 前移；0003 建的 3 张表不受影响。
-HEAD_REVISION = "0015_sprint11_print_rule"
+HEAD_REVISION = "0016_sprint11_return_rule"
 
 # 0003 之前就已存在的 5 张表：迁移只许加表，不许让这些表少行。
 PRE_MIGRATION_TABLES = (
