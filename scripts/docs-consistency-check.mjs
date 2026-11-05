@@ -79,6 +79,14 @@ const DOC_FILES = [
 const docTexts = DOC_FILES.map((rel) => ({ rel, text: readFileSync(join(ROOT, rel), 'utf8') }));
 
 const problems = [];
+// README 的第一屏写着「当前版本 vX.Y.Z」。它不属于代码里的四个版本源，
+// 所以四个源全对时它仍可能落后——实测落后过 22 个版本。这里单独盯一次。
+const readmeText = readFileSync(join(ROOT, 'README.md'), 'utf8');
+if (!readmeText.includes('当前版本 v' + uiVersion)) {
+  problems.push(
+    'README.md 的「当前版本」不是 v' + uiVersion + '：改版本号时忘了同步这一行',
+  );
+}
 const versions = [uiVersion, webPkg, apiPkg, apiRuntimeVersion];
 if (new Set(versions).size !== 1) {
   problems.push(

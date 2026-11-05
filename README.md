@@ -3,12 +3,12 @@
 面向**非计算机理工科背景、编程基础薄弱、希望转向 AI 应用开发**的初学者的自学平台。
 目标不是把课程播放完，而是让学习者最终能**独立开发并展示一个简单的 AI 应用**。
 
-> **当前版本 v0.1.18（单用户本地 MVP）**：数据库迁移 head 为 `0016_sprint11_return_rule`（共 16 个版本），
+> **当前版本 v0.1.41（单用户本地 MVP）**：数据库迁移 head 为 `0017_sprint12_ai_core_content`（共 17 个版本），
 > 后端共 **37 个操作 / 34 条路径**、**15 张业务表**；前端 **14 条页面路由**全部可访问。
-> 已完成：学习档案、20 题能力诊断与六域画像、**11 节课程**（Python 基础 5 节 + 编程实践 2 节 + API / LLM / RAG / Agent 4 节）与进度、周计划（含练习项）、
-> **22 道练习**的静态规则判题、DeepSeek AI 导师（额度与超时护栏）、知识库入库与引用检索。
+> 已完成：学习档案、20 题能力诊断与六域画像、**13 节课程**（Python 基础 5 节 + 编程实践 2 节 + API / LLM / RAG / Agent 6 节）与进度、周计划（含练习项）、
+> **26 道练习**的静态规则判题、DeepSeek AI 导师（额度与超时护栏）、知识库入库与引用检索。
 > **未完成**：登录鉴权、真实代码执行沙箱、第三方人工评审（作品可提交并自评，但没有第二个人能评审）。
-> 详见下方 [v0.1.8 能力清单](#v018-已实现--未实现)。
+> 详见下方 [v0.1.41 能力清单](#v0141-已实现--未实现)。
 
 ## 首版范围：路线 A
 
@@ -18,7 +18,7 @@ Python 基础 → 编程实践 → API → LLM → RAG/Agent 基础 → 简单 A
 
 产品原则：教用户独立解决问题而不是直接给答案；学习评估尽量基于可验证数据；允许自由使用 AI 提示但必须记录提示依赖；**不把课程完成率等同于掌握程度**。
 
-## v0.1.8 已实现 / 未实现
+## v0.1.41 已实现 / 未实现
 
 ### ✅ 已实现（可运行、有接口、有测试）
 
@@ -27,9 +27,9 @@ Python 基础 → 编程实践 → API → LLM → RAG/Agent 基础 → 简单 A
 | 学习档案 | `GET/PUT /api/v1/users/me(+/profile)`：`study_days` / `daily_minutes` / 时区确认，档案只前进不回退 |
 | 能力诊断 | 20 题题面（不含答案键）+ 提交计分：单事务写 1 批次 + 6 条等级证据；同 token 幂等回放、冲突 409；批次历史与逐题明细 |
 | 六域画像 | `GET /api/v1/skills` + `user_skill_levels` 证据分层（`level=0` 表示未评估，自评永不写等级） |
-| 最小课程 | **11 节**课程正文（五块结构：Python 基础 5 节 + 编程实践 2 节 + API / LLM / RAG / Agent 4 节）；打开课程不写库；进度 `not_started → in_progress → completed` 只进不退，`completed` 同事务关闭关联计划项 |
+| 最小课程 | **13 节**课程正文（五块结构：Python 基础 5 节 + 编程实践 2 节 + API / LLM / RAG / Agent 6 节）；打开课程不写库；进度 `not_started → in_progress → completed` 只进不退，`completed` 同事务关闭关联计划项 |
 | 周计划 | 预览（纯内存）、落库计划、生成/刷新（同周重生成行数不变，历史行不改写）、计划项标记 `done/skipped`（终态不可改写）；计划项可指向课程或练习 |
-| 练习与判题 | **22 道**练习（每课 2 道）；提交走**静态规则 + 自报输出比对**判定，**不执行任何提交的代码**，不自动晋升技能等级。判题前会**剥离注释与 docstring**，把要求抄进注释不能通过 |
+| 练习与判题 | **26 道**练习（每课 2 道）；提交走**静态规则 + 自报输出比对**判定，**不执行任何提交的代码**，不自动晋升技能等级。判题前会**剥离注释与 docstring**，把要求抄进注释不能通过 |
 | AI 导师 | `POST /api/v1/ai/tutor`：`assistance_level` 四档、每次调用落库用量、单次超时（`AI_TIMEOUT_SECONDS`）、每日 token 上限（`AI_DAILY_TOKEN_LIMIT`）、缺 Key 时 503 且不发起上游请求 |
 | 知识库 | 白名单文档入库（默认关闭）、关键词检索、导师回答附带引用与新鲜度标记 |
 | 前端 | 14 条页面路由、侧栏导航、深浅色主题、系统状态（后端在线 / 数据库已连接 / 离线三态） |
@@ -159,7 +159,7 @@ docker compose -f infra/docker-compose.yml ps      # 等待 STATUS 显示 (healt
 cd apps\api
 Copy-Item .env.example .env      # DEEPSEEK_API_KEY 留空即可，非 AI 功能照常工作
 uv sync
-uv run alembic upgrade head      # 迁移到 0013：业务表 + skills 与 11 节课程 / 22 道练习种子
+uv run alembic upgrade head      # 迁移到 0017：业务表 + skills 与 13 节课程 / 26 道练习种子
 uv run uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 
@@ -176,7 +176,7 @@ npm run dev
 
 打开 <http://localhost:3000>。页面侧栏底部的「系统状态」应显示 **后端在线 · 数据库已连接**。
 
-首轮体验路径：`/onboarding`（填学习档案并确认时区）→ `/diagnostic`（20 题诊断）→ `/result`（六域按证据分级）→ `/plan`（生成本周计划并落库）→ `/learn`（11 节课程，打开不写进度）→ `/practice`（22 道练习，提交即判题）→ `/knowledge`（知识库来源与检索）。
+首轮体验路径：`/onboarding`（填学习档案并确认时区）→ `/diagnostic`（20 题诊断）→ `/result`（六域按证据分级）→ `/plan`（生成本周计划并落库）→ `/learn`（13 节课程，打开不写进度）→ `/practice`（26 道练习，提交即判题）→ `/knowledge`（知识库来源与检索）。
 
 ### 5. 确认前后端已打通
 
@@ -225,7 +225,7 @@ Sprint 4 / 5 新增的六个后端变量：`AI_TIMEOUT_SECONDS`、`AI_DAILY_TOKE
 | --- | --- | --- |
 | 后端单元档 | `uv run pytest -q` | 数据库停止也必须全绿 |
 | 后端集成档 | `uv run pytest -q -m integration` | **hermetic**：用例自建夹具（临时库 + 自插基线行），在**全新数据库**上同样全绿 |
-| 迁移 | `uv run alembic upgrade head` + `alembic current` | 应为 `0016_sprint11_return_rule (head)` |
+| 迁移 | `uv run alembic upgrade head` + `alembic current` | 应为 `0017_sprint12_ai_core_content (head)` |
 | 前端 | `npx tsc --noEmit` / `npm run lint` / `npm run build` | 三项均应退出码 0 |
 
 CI 只有两个 job：`api`（PostgreSQL service + `uv sync --locked` + `ruff check` + `alembic upgrade head` + head 校验 + 单元档 + 集成档）与 `web`（`npm ci` + tsc + lint + build），**不使用任何 secret**。

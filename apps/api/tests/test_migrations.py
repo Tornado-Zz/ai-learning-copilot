@@ -37,7 +37,11 @@ PRACTICE_REVISION = "0013_sprint9_practice_content"
 # v0.1.18 的 0014 给 exercises 加 requirement_labels 并回填 22 题的 124 条中文要求：
 # 只发 ADD COLUMN / 一条 CHECK / UPDATE，head 前移一格。
 LABELS_REVISION = "0014_sprint10_requirement_labels"
-HEAD_REVISION = "0016_sprint11_return_rule"
+# v0.1.29 / v0.1.30 的 0015 / 0016 只给既有题追加判题规则（print / return），不建表、
+# 不加列；v0.1.41 的 0017 再补 a3 / a4 两节核心课与 4 道练习。
+PRINT_RULE_REVISION = "0015_sprint11_print_rule"
+RETURN_RULE_REVISION = "0016_sprint11_return_rule"
+HEAD_REVISION = "0017_sprint12_ai_core_content"
 SPRINT2_TABLES = {"lessons", "learning_progress", "study_plan_items"}
 SPRINT3_TABLES = {"exercises", "submissions"}
 
@@ -170,6 +174,9 @@ async def test_01_alembic_upgrade_head_succeeds_and_reports_head(database_url: s
     assert f"{SPRINT7_REVISION} -> {RAG_REVISION}" in history.stdout
     assert f"{RAG_REVISION} -> {PRACTICE_REVISION}" in history.stdout
     assert f"{PRACTICE_REVISION} -> {LABELS_REVISION}" in history.stdout
+    assert f"{LABELS_REVISION} -> {PRINT_RULE_REVISION}" in history.stdout
+    assert f"{PRINT_RULE_REVISION} -> {RETURN_RULE_REVISION}" in history.stdout
+    assert f"{RETURN_RULE_REVISION} -> {HEAD_REVISION}" in history.stdout
     current = subprocess.run(
         [sys.executable, "-m", "alembic", "current"],
         cwd=API_DIR,

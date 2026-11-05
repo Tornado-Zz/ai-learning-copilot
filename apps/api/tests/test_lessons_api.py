@@ -18,7 +18,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 pytestmark = pytest.mark.integration
 
 # 播种顺序：0003 的 5 节 Python 基础课，0011 的 a3 / a4，0012 的 a5 / a6，
-# 0013 的 a2 编程实践两节（order_index 接着 9 往下排到 11）。
+# 0013 的 a2 编程实践两节（order_index 接着 9 排到 11），0017 的 a3 / a4 两节核心课
+# 接在 12 / 13。
 EXPECTED_CODES = [
     "route_a.py.variables",
     "route_a.py.control_flow",
@@ -31,11 +32,14 @@ EXPECTED_CODES = [
     "route_a.agent.tool",
     "route_a.practice.decompose",
     "route_a.practice.debug",
+    "route_a.api.errors",
+    "route_a.llm.prompt",
 ]
 
 # 列表接口按 (stage, order_index) 排序，不是按 order_index：a2 的两节课 order_index
-# 是 10 / 11（0013 只发 INSERT，不改写既有行，只能接在末尾），stage 却是 2，
-# 所以在产品里它们排在 a1 之后、a3 之前。两种顺序都逐条钉死。
+# 是 10 / 11、0017 的两节 a3 / a4 课是 12 / 13（迁移只发 INSERT，不改写既有行，只能
+# 接在末尾），stage 却是 2 / 3 / 4，所以在产品里它们各自落在同域既有课之后。
+# 两种顺序都逐条钉死。
 EXPECTED_CODES_BY_API_ORDER = [
     "route_a.py.variables",
     "route_a.py.control_flow",
@@ -45,7 +49,9 @@ EXPECTED_CODES_BY_API_ORDER = [
     "route_a.practice.decompose",
     "route_a.practice.debug",
     "route_a.api.json",
+    "route_a.api.errors",
     "route_a.llm.messages",
+    "route_a.llm.prompt",
     "route_a.rag.retrieval",
     "route_a.agent.tool",
 ]

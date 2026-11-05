@@ -41,7 +41,7 @@ API_DIR = Path(__file__).resolve().parents[1]
 # Sprint 5 追加 0006、Sprint 6 追加 0007 后 head 前移两位；0005 建的这一张表必须保持原样。
 HEAD_REVISION = "0005_sprint4_ai_interactions"
 LATEST_REVISION = "0006_sprint5_knowledge"
-CURRENT_HEAD = "0016_sprint11_return_rule"
+CURRENT_HEAD = "0017_sprint12_ai_core_content"
 PREVIOUS_REVISION = "0004_sprint3_exercises"
 
 # A key shaped like a real one, long enough that searching a log line for it means

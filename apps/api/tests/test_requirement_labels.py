@@ -6,7 +6,7 @@ required_patterns **逐条一一对应、顺序相同、条数相等**，第 N �
 
 四条不变式，全部由本文件断言：
 
-1. 条数相等是硬约束：22 道题 124 条规则，任何一道题多一条或少一条标签都不许过；
+1. 条数相等是硬约束：当前 26 道题 172 条规则，任何一道题多一条或少一条标签都不许过；
 2. 标签是给人看的：非空、≤ 40 字、不含正则记号，也不回显任何一条模式原文；
 3. requirements 可以对外：它复述题面要求，不是答案键；required_patterns /
    forbidden_patterns / expected_output 仍然一次都不出现在响应里；
@@ -33,13 +33,16 @@ ANSWER_KEYS = ("required_patterns", "forbidden_patterns", "expected_output")
 # 正则记号：标签是给人看的句子，出现这些字符就说明正则漏到了文案里。
 REGEX_MARKS = ("\\s", "\\w", "\\b", "[", "]", "(", ")", "|")
 LABEL_MAX_LENGTH = 40
-# 两个口径要分开：
-#   * 0014 迁移刚跑完时是 124 条（0011–0013 的种子规则），迁移幂等用例查的是这个快照；
-#   * 当前 head 是 136 条——0015 给 12 道「要求打印却未检查 print」的题各补一条规则。
-# 改内容时这两个数字都可能要同步。
+# 三个口径要分开：
+#   * 0014 迁移刚跑完时是 124 条规则、22 道题（0011–0013 的种子），幂等用例查的是这个快照；
+#   * 0015 给 12 道「要求打印却未检查 print」的题各补一条规则，0016 给 3 道补 return：
+#     139 条；
+#   * 0017 再补 a3 / a4 两节核心课与 4 道练习，规则 139 + 33 = 172 条、练习 26 道。
+# 改内容时这几个数字都要同步。
 TOTAL_RULES_AFTER_0014 = 124
-TOTAL_RULES = 139
-TOTAL_EXERCISES = 22
+EXERCISES_AT_0014 = 22
+TOTAL_RULES = 172
+TOTAL_EXERCISES = 26
 
 REQUIRED = [r"def\s+add\s*\(\s*\w+\s*,\s*\w+\s*\)", r"return\s+"]
 LABELS = ["定义一个名为 add、接受两个参数的函数", "用 return 把结果返回"]
@@ -294,7 +297,8 @@ async def test_0014_backfills_every_exercise_and_is_idempotent(migration_probe) 
         second = await snapshot(probe)
 
         assert first == second
-        assert len(first) == TOTAL_EXERCISES
+        # 探针停在 0014：那时库里只有 0011–0013 播种的 22 道题，0017 的 4 道还没进来。
+        assert len(first) == EXERCISES_AT_0014
         assert sum(len(labels) for labels in first.values()) == TOTAL_RULES_AFTER_0014
         assert all(labels for labels in first.values())
 
