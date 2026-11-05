@@ -233,7 +233,8 @@ export function ExerciseView({ exerciseId }: { exerciseId: string }) {
               {exercise.requirements.length > 0 ? (
                 <div className="rounded-control bg-surface px-3 py-2">
                   <p className="text-[11px] font-medium text-muted">
-                    本题要求（判题按这个顺序逐条检查，失败时会指出第几项）
+                    判题检查项 · 共 {String(exercise.requirements.length)} 项
+                    （失败时按这里的编号指出第几项，与题面里的编号不是同一套）
                   </p>
                   <ol className="mt-1 space-y-1">
                     {exercise.requirements.map((requirement, index) => (
@@ -261,6 +262,9 @@ export function ExerciseView({ exerciseId }: { exerciseId: string }) {
               )}
               <p className="text-[11px] leading-relaxed text-muted">
                 下方编辑器已预填该题的起始代码，可以直接修改；起始代码只是骨架，不含答案。
+                {exercise.requirements.length > 0
+                  ? "题面里的编号（1)、2)…）是讲解顺序；判题只对照上面那张「判题检查项」表。"
+                  : null}
               </p>
             </CardBody>
           </Card>
