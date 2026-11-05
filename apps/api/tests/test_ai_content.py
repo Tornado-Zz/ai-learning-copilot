@@ -34,9 +34,9 @@ SPRINT9_REVISION = "0013_sprint9_practice_content"
 # 它仍然让 head 前移，所以「第二次 upgrade 不新增行」这条断言要跟着 head 走。
 LABELS_REVISION = "0014_sprint10_requirement_labels"
 # 0015 / 0016 只给既有题追加规则（不动课程与练习正文），0017 再补 a3 / a4 两节课与
-# 4 道练习，0018 又补 a5 / a6 各一节第二课与 4 道练习：它们都让 head 前移，
-# 「第二次 upgrade 不新增行」这条断言跟着 head 走。
-HEAD_REVISION = "0018_sprint13_a5_a6_second_lessons"
+# 4 道练习，0018 又补 a5 / a6 各一节第二课与 4 道练习，0019 再补 a6 一节「跟着做」实战课
+# 与 2 道练习：它们都让 head 前移，「第二次 upgrade 不新增行」这条断言跟着 head 走。
+HEAD_REVISION = "0019_sprint14_project_build"
 PREVIOUS_REVISION = "0010_capstone_review_requires_reviewer"
 
 AI_LESSON_CODES = [
@@ -68,6 +68,11 @@ SPRINT12_LESSON_CODES = [
 SPRINT13_LESSON_CODES = [
     "route_a.rag.grounding",
     "route_a.project.scope",
+]
+# 0019 给 a6 补一节「跟着做」实战课（order_index 16）：把已有零件串成一条主路径跑一遍。
+# 它同样不在 0011-0013 的逐条断言范围内，但全表课程清单要算进去。
+SPRINT14_LESSON_CODES = [
+    "route_a.project.build",
 ]
 CONTENT_KEYS = {
     "schema_version",
@@ -381,9 +386,10 @@ async def test_06_migration_is_idempotent_on_a_clean_database(migration_probe) -
         assert HEAD_REVISION in probe.current()
         first = await probe.counts(PROBE_TABLES)
         # 0011 追加 2 节 + 4 道，0012 再追加 2 节 + 4 道，0013 再追加 2 节 + 4 道，
-        # 0017 再追加 2 节 + 4 道，0018 又追加 2 节 + 4 道：0010 -> head 一共 +10 节、+20 道。
-        assert first["lessons"] == before["lessons"] + 10, first
-        assert first["exercises"] == before["exercises"] + 20, first
+        # 0017 再追加 2 节 + 4 道，0018 又追加 2 节 + 4 道，0019 再追加 1 节 + 2 道：
+        # 0010 -> head 一共 +11 节、+22 道。
+        assert first["lessons"] == before["lessons"] + 11, first
+        assert first["exercises"] == before["exercises"] + 22, first
 
         # 再升一次 head：alembic 已在 head，种子必须一行不加、一行不改。
         probe.upgrade("head")
@@ -441,7 +447,11 @@ async def test_07_python_lessons_and_their_exercises_are_untouched(
         )
     ).mappings().all()
     assert [row["code"] for row in lessons] == (
-        LEGACY_LESSON_CODES + AI_LESSON_CODES + SPRINT12_LESSON_CODES + SPRINT13_LESSON_CODES
+        LEGACY_LESSON_CODES
+        + AI_LESSON_CODES
+        + SPRINT12_LESSON_CODES
+        + SPRINT13_LESSON_CODES
+        + SPRINT14_LESSON_CODES
     )
     assert all(row["status"] == "published" for row in lessons)
     assert all(int(row["content_version"]) == 1 for row in lessons)
