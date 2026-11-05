@@ -64,8 +64,9 @@ jobs:
       - name: Install dependencies (locked)
         run: uv sync --locked
 
+      # migrations/ 也是本仓库的代码，一并检查；本地 scripts/ci.ps1 用同一条命令。
       - name: Ruff（静态检查）
-        run: uv run ruff check app tests
+        run: uv run ruff check app tests migrations
 
       - name: Apply migrations
         run: uv run alembic upgrade head
@@ -77,7 +78,8 @@ jobs:
         run: uv run pytest -q
 
       # 集成档已 hermetic：用例自建夹具（临时库、自插基线行），不依赖开发库里的历史数据。
-      # 本地在全新数据库上实测 85 passed（连跑 3 次一致），因此这里是**硬门禁**。
+      # 本地在**全新数据库**上实测与开发库一致（149 passed / 1 skipped，随内容增长），
+      # 因此这里是**硬门禁**：红就是真红，没有 continue-on-error 的余地。
       - name: Pytest — 集成档（hermetic，硬门禁）
         run: uv run pytest -q -m integration
 
@@ -95,18 +97,19 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # 文档里写的端点数 / 表数 / 迁移 head / 页面数必须与源码一致。
-      # 放这里是因为它只需要 Node，不需要数据库；脚本本身不断言运行中的服务。
-      - name: Docs consistency
-        working-directory: .
-        run: node scripts/docs-consistency-check.mjs
-
       - name: Setup Node.js 22
         uses: actions/setup-node@v4
         with:
           node-version: "22"
           cache: npm
           cache-dependency-path: apps/web/package-lock.json
+
+      # 文档里写的端点数 / 表数 / 迁移 head / 页面数必须与源码一致。
+      # 放在 Setup Node 之后：runner 自带的 node 版本不受本仓库控制，用固定的 22 更稳。
+      # 该脚本只读源码树，不需要数据库，也不断言运行中的服务。
+      - name: Docs consistency
+        working-directory: .
+        run: node scripts/docs-consistency-check.mjs
 
       - name: Install dependencies (locked)
         run: npm ci --no-audit --no-fund

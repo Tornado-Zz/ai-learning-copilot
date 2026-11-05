@@ -5,6 +5,30 @@
 
 ## [Unreleased]
 
+## [0.1.37] — 2026-11-05
+
+发布前预检：**CI 从未在 GitHub 上真正跑过**，推送后如果它红，第一次发布就砸了。这轮把工作流与本机脚本对齐并逐项核对。
+
+### Fixed（CI 工作流三处）
+
+1. **`ruff` 范围不含 `migrations/`**：本地我一直在跑 `ruff check .`（含迁移），CI 只查 `app tests`——两边口径不一致。现在 CI 与 `scripts/ci.ps1` 都查 `app tests migrations`，本地实测通过。
+2. **注释里的测试数是旧的**（写着「全新库 85 passed」）：实际是 `149 passed, 1 skipped`。改成不写死数字，只说明它是**硬门禁**、没有 `continue-on-error` 的余地。
+3. **「文档一致性」步骤排在 Setup Node 之前**：依赖 runner 自带的 node 版本（不受本仓库控制）。已移到固定 Node 22 之后。
+
+### Fixed（发布指南）
+
+`docs/PUBLISHING.md` 的数字全线过期（30+ 提交 / 9 个标签 / 125 单元 / 85 集成）。现已按实测重写：
+
+- 当前状态：**70 个提交、37 个标签**（`v0.1.0` … `v0.1.36`）；
+- 自检命令改为**一条 `scripts/ci.ps1`**（12 步）加一条 `smoke.ps1`（18 项），并列出当前基线数字，方便发现漂移；
+- 推送后要确认的**三件事**：37 个标签、Actions 两个 job 全绿、README 六张截图能显示；
+- 补上「CI 首次失败时，本机 `ci.ps1` 跑的是同一批命令」这一条排查提示。
+
+### Verified
+
+- `scripts/ci.ps1` 完整跑通：docs → security → api 6 步（含 `ruff check app tests migrations`、`149 passed, 1 skipped`）→ web 4 步（`npm ci` / `tsc` / `lint` / `build`）。
+- 文档一致性检查通过；`ci.ps1` 保持纯 ASCII。
+
 ## [0.1.36] — 2026-11-05
 
 新增 `docs/UX_NOTES.md`：把这几轮走查得到的**体验结论**固化成可交接的文档。
