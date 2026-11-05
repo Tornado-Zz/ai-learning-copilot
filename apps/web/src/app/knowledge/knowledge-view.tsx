@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Button, TextInput } from "@/components/form";
 import { EmptyState, ErrorPanel, LoadingPanel } from "@/components/states";
 import { Card, CardBody, CardHeader, Tag } from "@/components/ui";
@@ -11,15 +11,17 @@ import {
   KNOWLEDGE_LIMIT,
   KNOWLEDGE_QUERY_MIN,
   KNOWLEDGE_STALE_BADGE,
+  KNOWLEDGE_SOURCES_PATH,
   KNOWLEDGE_STALE_DAYS_HINT,
   ageDaysText,
   buildSearchPath,
   parseKnowledgeSearch,
+  parseSourceList,
   scoreText,
   sourceDomain,
   validateKnowledgeQuery,
 } from "@/lib/knowledge";
-import type { KnowledgeHit, KnowledgeSearchResult } from "@/lib/knowledge";
+import type { KnowledgeHit, KnowledgeSearchResult, KnowledgeSource } from "@/lib/knowledge";
 
 // 三种结果态与三种过程态都复用现成组件（LoadingPanel / ErrorPanel / EmptyState），
 // 页面不新增自己的骨架屏或空态样式。
@@ -35,9 +37,26 @@ const QUERY_ERROR_ID = "knowledge-query-error";
 const QUERY_HINT_ID = "knowledge-query-hint";
 
 export function KnowledgeView() {
+  const [sources, setSources] = useState<KnowledgeSource[] | null>(null);
   const [query, setQuery] = useState("");
   const [validation, setValidation] = useState<string | null>(null);
   const [state, setState] = useState<ViewState>({ status: "idle" });
+
+  // 来源清单：进入页面就拉一次。失败保持 null，页面写「未返回」而不是显示空表。
+  useEffect(() => {
+    let active = true;
+    void (async () => {
+      const result = await apiRequest<KnowledgeSource[]>(KNOWLEDGE_SOURCES_PATH, {
+        parse: parseSourceList,
+      });
+      if (active) {
+        setSources(result.ok ? result.data : null);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const runSearch = useCallback(async (raw: string) => {
     const invalid = validateKnowledgeQuery(raw);
@@ -62,6 +81,47 @@ export function KnowledgeView() {
 
   return (
     <div className="space-y-6">
+      <Card>
+        <CardHeader
+          title="知识来源"
+          description="GET /api/v1/knowledge/sources —— 入库了哪些来源、各多少块、什么时候抓的。回答里的引用就出自这里。"
+          action={<Tag>{sources === null ? "未返回" : String(sources.length) + " 个来源"}</Tag>}
+        />
+        <CardBody>
+          {sources === null ? (
+            <p className="text-[11px] leading-relaxed text-muted">
+              接口没有返回来源清单；这不影响检索，但说明本次拿不到「材料从哪来」。
+            </p>
+          ) : sources.length === 0 ? (
+            <p className="text-[11px] leading-relaxed text-muted">
+              知识库还是空的：抓取入库功能默认关闭，需要显式开启后才会抓到内容。
+            </p>
+          ) : (
+            <ul className="divide-y divide-line">
+              {sources.map((source) => (
+                <li key={source.id} className="py-2.5 first:pt-0 last:pb-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="min-w-0 text-[12px] font-medium text-fg">
+                      {source.title === "" ? source.url : source.title}
+                    </span>
+                    {source.stale ? <Tag tone="warning">可能过期</Tag> : null}
+                    <span className="ml-auto font-mono text-[11px] tabular-nums text-muted">
+                      {source.chunks === null ? "—" : String(source.chunks) + " 块"}
+                    </span>
+                  </div>
+                  <p className="mt-1 break-all font-mono text-[11px] text-muted">{source.url}</p>
+                  <p className="mt-0.5 text-[11px] text-muted">
+                    {source.sourceType || "—"} · 抓取于{" "}
+                    {source.fetchedAt === null ? "—" : formatDateTime(source.fetchedAt)} · 距今{" "}
+                    {ageDaysText(source.ageDays)}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          )}
+        </CardBody>
+      </Card>
+
       <Card>
         <CardHeader
           title="检索知识库快照"

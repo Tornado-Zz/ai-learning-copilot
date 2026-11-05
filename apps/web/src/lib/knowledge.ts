@@ -2,6 +2,9 @@
 // 本页不提供「输入任意 URL 抓取」的入口：抓取白名单（docs.python.org 与仓库 lessons）只在服务端判定，前端不参与。
 
 export const KNOWLEDGE_SEARCH_PATH = "/api/v1/knowledge/search";
+// GET /api/v1/knowledge/sources：入库了哪些来源、各多少块、什么时候抓的、是否过期。
+// 这个接口一直存在，但知识库页面此前只做检索、从不展示来源清单。
+export const KNOWLEDGE_SOURCES_PATH = "/api/v1/knowledge/sources";
 
 // 契约默认 limit=5；页面固定用同一个值，避免多出一次状态。
 export const KNOWLEDGE_LIMIT = 5;
@@ -25,6 +28,17 @@ export type KnowledgeHit = {
   heading: string | null;
   snippet: string;
   score: number;
+};
+
+export type KnowledgeSource = {
+  id: string;
+  url: string;
+  title: string;
+  sourceType: string;
+  fetchedAt: string | null;
+  ageDays: number | null;
+  stale: boolean;
+  chunks: number | null;
 };
 
 export type KnowledgeSearchResult = {
@@ -125,6 +139,16 @@ function readCount(record: Record<string, unknown>, keys: string[]): number | nu
   return null;
 }
 
+function readBoolean(record: Record<string, unknown>, keys: string[]): boolean | null {
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === "boolean") {
+      return value;
+    }
+  }
+  return null;
+}
+
 function readId(record: Record<string, unknown>, keys: string[]): string | null {
   for (const key of keys) {
     const value = record[key];
@@ -188,4 +212,48 @@ export function parseKnowledgeSearch(payload: unknown): KnowledgeSearchResult | 
     items,
     total: total === null ? items.length : Math.round(total),
   };
+}
+
+// 单条来源：缺关键字段就跳过该行，整体不可解析时返回 null（页面显示读取失败，不编条目）。
+function parseSource(value: unknown): KnowledgeSource | null {
+  const record = asRecord(value);
+  if (!record) {
+    return null;
+  }
+  const url = readText(record, ["url"]) ?? "";
+  const title = readText(record, ["title"]) ?? "";
+  if (url === '' && title === '') {
+    return null;
+  }
+  return {
+    id: readId(record, ["id"]) ?? "",
+    url,
+    title,
+    sourceType: readText(record, ["source_type", "sourceType"]) ?? "",
+    fetchedAt: readText(record, ["fetched_at", "fetchedAt"]),
+    ageDays: readCount(record, ["age_days", "ageDays"]),
+    stale: readBoolean(record, ["stale"]) ?? false,
+    chunks: readCount(record, ["chunks"]),
+  };
+}
+
+export function parseSourceList(payload: unknown): KnowledgeSource[] | null {
+  const list = asArray(payload);
+  const record = list ? null : asRecord(payload);
+  const container = list
+    ? list
+    : record
+      ? asArray(record.items) ?? asArray(record.sources) ?? asArray(record.data)
+      : null;
+  if (!container) {
+    return null;
+  }
+  const items: KnowledgeSource[] = [];
+  for (const entry of container) {
+    const parsed = parseSource(entry);
+    if (parsed) {
+      items.push(parsed);
+    }
+  }
+  return items;
 }
