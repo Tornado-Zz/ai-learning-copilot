@@ -49,7 +49,8 @@ CAPSTONE_REQUIRED_PLAN_ITEMS_DONE = 5
 CAPSTONE_L2_LEVEL = 2
 ACTIVITY_WINDOW_DAYS = 7
 CAPSTONE_NOTE = (
-    "作品提交与人工评审流程尚未实现（v0.1.x）；本页只展示由真实学习数据推导出的达标情况。"
+    "作品提交与本人自评已实现（v0.1.3 起，reviewer 只能是 self）；未实现的是第三方评审——"
+    "那需要多用户与鉴权，v0.1.x 没有。本页的达标情况由真实学习数据推导。"
 )
 
 # Lessons: the catalogue total is a scalar subquery, the rest is this user's own

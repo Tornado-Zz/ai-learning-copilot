@@ -14,8 +14,8 @@ import type { ApiFailure } from "@/lib/http";
 // 2) exercises_passed：submissions.is_passed = true 的 exercise 去重计数（同一道题多次通过只算一次）；
 // 3) domains_at_l2：user_skill_levels.level >= 2 的能力域数量（同一 skill_code 只算一个域）；
 // 4) plan_items_done：study_plan_items.status = 'done' 的行数，跨周累计。
-// ready = 四条 met 全为 true。作品提交与人工评审流程在 v0.1.x 尚未实现，
-// 因此页面原样显示后端 note，不给出任何评审结论或提交入口。
+// ready = 四条 met 全为 true。提交与本人自评已实现（见同目录 capstone-section.tsx）；
+// 未实现的是第三方评审（需要多用户与鉴权）。note 由后端给出，本文件不改写。
 
 const READINESS_PATH = "/api/v1/capstone/readiness";
 const DASH = "—";
