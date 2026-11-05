@@ -19,7 +19,8 @@ pytestmark = pytest.mark.integration
 
 # 播种顺序：0003 的 5 节 Python 基础课，0011 的 a3 / a4，0012 的 a5 / a6，
 # 0013 的 a2 编程实践两节（order_index 接着 9 排到 11），0017 的 a3 / a4 两节核心课
-# 接在 12 / 13，0018 的 a5 / a6 两节第二课接在 14 / 15，0019 的 a6「跟着做」实战课接在 16。
+# 接在 12 / 13，0018 的 a5 / a6 两节第二课接在 14 / 15，0019 的 a6「跟着做」实战课接在 16，
+# 0020 的 a1 字符串 / 文件两节接在 17 / 18。
 EXPECTED_CODES = [
     "route_a.py.variables",
     "route_a.py.control_flow",
@@ -37,18 +38,23 @@ EXPECTED_CODES = [
     "route_a.rag.grounding",
     "route_a.project.scope",
     "route_a.project.build",
+    "route_a.py.strings",
+    "route_a.py.files",
 ]
 
 # 列表接口按 (stage, order_index) 排序，不是按 order_index：a2 的两节课 order_index
 # 是 10 / 11、0017 的两节 a3 / a4 课是 12 / 13、0018 的两节 a5 / a6 课是 14 / 15、
-# 0019 的 a6 实战课是 16（迁移只发 INSERT，不改写既有行，只能接在末尾），stage 却是
-# 2 / 3 / 4 / 5 / 6，所以在产品里它们各自落在同域既有课之后。两种顺序都逐条钉死。
+# 0019 的 a6 实战课是 16、0020 的两节 a1 课是 17 / 18（迁移只发 INSERT，不改写既有行，
+# 只能接在末尾），stage 却是 2 / 3 / 4 / 5 / 6 / 1，所以在产品里它们各自落在同域既有课
+# 之后：a1 的两节排在 debugging 后面。两种顺序都逐条钉死。
 EXPECTED_CODES_BY_API_ORDER = [
     "route_a.py.variables",
     "route_a.py.control_flow",
     "route_a.py.list_dict",
     "route_a.py.functions",
     "route_a.py.debugging",
+    "route_a.py.strings",
+    "route_a.py.files",
     "route_a.practice.decompose",
     "route_a.practice.debug",
     "route_a.api.json",

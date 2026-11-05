@@ -35,8 +35,9 @@ SPRINT9_REVISION = "0013_sprint9_practice_content"
 LABELS_REVISION = "0014_sprint10_requirement_labels"
 # 0015 / 0016 只给既有题追加规则（不动课程与练习正文），0017 再补 a3 / a4 两节课与
 # 4 道练习，0018 又补 a5 / a6 各一节第二课与 4 道练习，0019 再补 a6 一节「跟着做」实战课
-# 与 2 道练习：它们都让 head 前移，「第二次 upgrade 不新增行」这条断言跟着 head 走。
-HEAD_REVISION = "0019_sprint14_project_build"
+# 与 2 道练习，0020 再给 a1 补字符串与文件两节课与 4 道练习：它们都让 head 前移，
+# 「第二次 upgrade 不新增行」这条断言跟着 head 走。
+HEAD_REVISION = "0020_sprint15_py_strings_files"
 PREVIOUS_REVISION = "0010_capstone_review_requires_reviewer"
 
 AI_LESSON_CODES = [
@@ -73,6 +74,12 @@ SPRINT13_LESSON_CODES = [
 # 它同样不在 0011-0013 的逐条断言范围内，但全表课程清单要算进去。
 SPRINT14_LESSON_CODES = [
     "route_a.project.build",
+]
+# 0020 给 a1 补上「处理 AI 数据」的两节日常课（order_index 17 / 18）：字符串与文件。
+# 它们属于 Python 基础域，同样不在 0011-0013 的逐条断言范围内，但全表课程清单要算进去。
+SPRINT15_LESSON_CODES = [
+    "route_a.py.strings",
+    "route_a.py.files",
 ]
 CONTENT_KEYS = {
     "schema_version",
@@ -386,10 +393,10 @@ async def test_06_migration_is_idempotent_on_a_clean_database(migration_probe) -
         assert HEAD_REVISION in probe.current()
         first = await probe.counts(PROBE_TABLES)
         # 0011 追加 2 节 + 4 道，0012 再追加 2 节 + 4 道，0013 再追加 2 节 + 4 道，
-        # 0017 再追加 2 节 + 4 道，0018 又追加 2 节 + 4 道，0019 再追加 1 节 + 2 道：
-        # 0010 -> head 一共 +11 节、+22 道。
-        assert first["lessons"] == before["lessons"] + 11, first
-        assert first["exercises"] == before["exercises"] + 22, first
+        # 0017 再追加 2 节 + 4 道，0018 又追加 2 节 + 4 道，0019 再追加 1 节 + 2 道，
+        # 0020 再追加 2 节 + 4 道：0010 -> head 一共 +13 节、+26 道。
+        assert first["lessons"] == before["lessons"] + 13, first
+        assert first["exercises"] == before["exercises"] + 26, first
 
         # 再升一次 head：alembic 已在 head，种子必须一行不加、一行不改。
         probe.upgrade("head")
@@ -452,6 +459,7 @@ async def test_07_python_lessons_and_their_exercises_are_untouched(
         + SPRINT12_LESSON_CODES
         + SPRINT13_LESSON_CODES
         + SPRINT14_LESSON_CODES
+        + SPRINT15_LESSON_CODES
     )
     assert all(row["status"] == "published" for row in lessons)
     assert all(int(row["content_version"]) == 1 for row in lessons)
@@ -460,7 +468,12 @@ async def test_07_python_lessons_and_their_exercises_are_untouched(
         await db_session.execute(
             text(
                 "SELECT code, status, content_version FROM exercises "
-                "WHERE code ~ '^route_a[.]py[.]' ORDER BY code"
+                # 只按 0003 / 0004 那五节课的 code 前缀取：0020 新加的
+                # route_a.py.strings / route_a.py.files 也落在 route_a.py. 下，
+                # 但它们不是「既有 Python 基础课」，不能混进这条未改动的断言。
+                "WHERE code ~ "
+                "'^route_a[.]py[.](variables|control_flow|list_dict|functions|debugging)[.]' "
+                "ORDER BY code"
             )
         )
     ).mappings().all()
