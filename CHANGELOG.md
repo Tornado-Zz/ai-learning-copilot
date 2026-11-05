@@ -5,6 +5,29 @@
 
 ## [Unreleased]
 
+## [0.1.22] — 2026-11-04
+
+系统排查**时间脆弱性**：上一轮发现「写死周三」的用例会随日期变红，这轮把同类隐患一次清掉。
+
+### Fixed
+
+- **`tests/test_sprint2_patch_lessons.py`**：`study_days=[5]`（周五）且走 HTTP 用真实时钟——周六就会红。改为从今天推算。
+- **`tests/test_sprint2_patch_study_plan.py`** 里剩余三处硬编码天数：
+  - 两处场景（「周二首次生成」「周末首次生成」）需要特定星期，越过该星期后断言会**恒真**——测试不再检验任何东西。比红更危险的是**空过**，因此改为显式 `pytest.skip` 并说明原因；
+  - 一处改为使用上轮引入的日期推算 helper。
+- **共享 helper 提到 `tests/conftest.py`**：`calendar_today()` / `future_weekdays()`，供所有走真实时钟的计划用例复用（此前散落在一个测试文件里）。
+
+### 排查结论（不是所有「写死日期」都有问题）
+
+- `test_progress_aggregates.py` 的固定日期测的是**纯函数**（`activity_window`），不依赖今天，安全；
+- `test_study_plan_generate.py` 的三处 `study_days=[2,3,4]` 走**服务层 + `today_override`**，不受真实时钟影响，安全；
+- 真正危险的是**走 HTTP 且写死星期**的组合，本轮已全部处理。
+
+### Verified
+
+- 产品库：`164 passed`（单元）/ `142 passed, 1 skipped`（集成）；**全新数据库结果完全相同**；`ruff` 干净。
+- 那个 skip 是诚实的：本周的周二已过，「周二首次生成」场景无法复现——保留红或让它空过都更糟。
+
 ## [0.1.21] — 2026-11-04
 
 堵住一个**可以清空错题本**的诚信漏洞，并修掉一组会随星期几变红的测试。

@@ -285,6 +285,10 @@ async def test_patch_03_first_generation_on_tuesday_creates_no_monday_scheduled_
         monday, today = await _confirmed(
             db_session, user_id, study_days=[1, 3], daily_minutes=480
         )
+        if today.isoweekday() > 2:
+            # 场景要求「周二还没到」。越过周二后，生成器本来就不会排周一之后的过去日期，
+            # 断言会变成恒真（空过）——那比红更危险，所以显式跳过。
+            pytest.skip("本周的周二已过去，该场景无法复现（避免空过）")
         tuesday = monday + timedelta(days=1)
 
         # 对照：把「今天」钉在周一，周一确实会被排课（证明过滤器不是空转）
@@ -337,9 +341,11 @@ async def test_patch_04_first_generation_on_the_weekend_only_schedules_the_weeke
     baseline = await _baseline(api, db_session)
     user_id = int(baseline["user_id"])
     try:
-        monday, _today = await _confirmed(
+        monday, today = await _confirmed(
             db_session, user_id, study_days=[1, 3, 5, 6], daily_minutes=480
         )
+        if today.isoweekday() > 6:
+            pytest.skip("本周的周六已过去，该场景无法复现（避免空过）")
         saturday = monday + timedelta(days=5)
         sunday = monday + timedelta(days=6)
 

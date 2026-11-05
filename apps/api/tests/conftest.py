@@ -24,6 +24,7 @@ import sys
 import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable, Sequence
 from contextlib import AsyncExitStack, asynccontextmanager
+from datetime import date
 from pathlib import Path
 
 import asyncpg
@@ -416,3 +417,30 @@ async def create_isolated_learner(
             {"user_id": user_id, "level": level},
         )
     return user_id
+async def calendar_today(session: AsyncSession) -> tuple[date, date]:
+    """返回 (本周周一, 该用户时区的今天)。只读，不改任何档案。
+
+    计划相关用例若走 HTTP 触发生成，用的是**真实时钟**；硬编码「周几」的用例会随
+    运行日漂移（实测：周三写死 [3]，周四跑就整片变红）。用这两个 helper 从今天推算。
+    """
+    timezone_name = "Asia/Shanghai"
+    monday = (
+        await session.execute(
+            text("SELECT date_trunc('week', (now() AT TIME ZONE :timezone))::date"),
+            {'timezone': timezone_name},
+        )
+    ).scalar_one()
+    today = (
+        await session.execute(
+            text("SELECT (now() AT TIME ZONE :timezone)::date"),
+            {'timezone': timezone_name},
+        )
+    ).scalar_one()
+    return monday, today
+
+
+def future_weekdays(today: date, count: int) -> list[int]:
+    """本周内「今天及以后」的 count 个连续星期号；放不下时返回空列表。"""
+    start = today.isoweekday()
+    days = [start + offset for offset in range(count)]
+    return days if days and days[-1] <= 7 else []

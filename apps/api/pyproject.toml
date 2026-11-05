@@ -1,7 +1,7 @@
 [project]
 name = "ai-learning-copilot-api"
 # 版本号跟随仓库发布标签（v0.1.x）；这里不是独立发布的包（见 [tool.uv] package = false）。
-version = "0.1.21"
+version = "0.1.22"
 description = "AI Learning Copilot backend: diagnostics, lessons, study plan, exercises, DeepSeek tutor and knowledge retrieval"
 requires-python = ">=3.12,<3.13"
 dependencies = [

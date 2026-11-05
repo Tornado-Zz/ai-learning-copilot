@@ -16,6 +16,8 @@ from sqlalchemy import ARRAY, SmallInteger, bindparam, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from tests.conftest import calendar_today, future_weekdays
+
 pytestmark = pytest.mark.integration
 
 SET_USER_TIMEZONE = text(
@@ -177,7 +179,12 @@ async def test_patch_05_completing_a_lesson_marks_its_scheduled_plan_item_done(
     baseline = await _baseline(api)
     user_id = int(baseline["user_id"])
     try:
-        monday = await _confirmed(db_session, user_id, study_days=[5], daily_minutes=480)
+        # 不写死「周几」：走 HTTP 生成用的是真实时钟，写死周五会在周六日整片变红。
+        monday, today = await calendar_today(db_session)
+        days = future_weekdays(today, 1)
+        if not days:
+            pytest.skip("本周已无「今天及以后」的学习日")
+        monday = await _confirmed(db_session, user_id, study_days=[days[0]], daily_minutes=480)
         generated = await api.post("/api/v1/study-plan/generate")
         assert generated.status_code == 200, generated.text
         rows = await _rows(db_session, user_id, monday)
@@ -246,7 +253,12 @@ async def test_patch_06_marking_a_plan_item_done_never_completes_the_lesson(
     baseline = await _baseline(api)
     user_id = int(baseline["user_id"])
     try:
-        monday = await _confirmed(db_session, user_id, study_days=[5], daily_minutes=480)
+        # 不写死「周几」：走 HTTP 生成用的是真实时钟，写死周五会在周六日整片变红。
+        monday, today = await calendar_today(db_session)
+        days = future_weekdays(today, 1)
+        if not days:
+            pytest.skip("本周已无「今天及以后」的学习日")
+        monday = await _confirmed(db_session, user_id, study_days=[days[0]], daily_minutes=480)
         assert (await api.post("/api/v1/study-plan/generate")).status_code == 200
         rows = await _rows(db_session, user_id, monday)
         item = next(row for row in rows if row["status"] == "scheduled")
