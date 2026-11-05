@@ -24,6 +24,16 @@ Pop-Location
 
 Write-Host '=== 2. api ===' -ForegroundColor Cyan
 Check 'health 200' { (Invoke-WebRequest -UseBasicParsing 'http://127.0.0.1:8000/api/v1/health' -TimeoutSec 5).StatusCode -eq 200 }
+# The running API can be an older process than the checkout: start it, change the
+# version, and /health keeps reporting the old number because nothing restarted it.
+# This happened three times in one session, so it is checked rather than remembered.
+Check 'running API version matches pyproject' {
+  $pyproject = Join-Path $root 'apps/api/pyproject.toml'
+  $expected = (Select-String -Path $pyproject -Pattern '^version = "([^"]+)"').Matches[0].Groups[1].Value
+  $actual = (Invoke-RestMethod 'http://127.0.0.1:8000/api/v1/health' -TimeoutSec 5).version
+  if ($actual -ne $expected) { Write-Host ('      expected ' + $expected + ', running ' + $actual + ' -> restart the API') -ForegroundColor Yellow }
+  $actual -eq $expected
+}
 Check 'ready connected' { (Invoke-WebRequest -UseBasicParsing 'http://127.0.0.1:8000/api/v1/ready' -TimeoutSec 5).Content -match 'connected' }
 Check 'skills = 6' { ((Invoke-RestMethod 'http://127.0.0.1:8000/api/v1/skills' -TimeoutSec 5).skills).Count -eq 6 }
 Check 'lessons >= 5' { ((Invoke-RestMethod 'http://127.0.0.1:8000/api/v1/lessons' -TimeoutSec 5).items).Count -ge 5 }

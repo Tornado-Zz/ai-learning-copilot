@@ -5,6 +5,29 @@
 
 ## [Unreleased]
 
+## [0.1.25] — 2026-11-04
+
+把一晚踩了三次的坑**做成了自动检查**。
+
+### 问题
+
+改完版本号后没有重启 API，`GET /health` 会继续报旧版本——文档里刚写过这条（CONTRIBUTING 7.1 / 7.6），我自己当晚仍然犯了三次。**写进文档的问题靠记忆防不住，得让工具说话。**
+
+### Added
+
+`scripts/smoke.ps1` 新增一项检查：**运行中的 API 版本必须等于 `apps/api/pyproject.toml` 里的版本**。不一致时明确提示该重启，并计入失败。
+
+```
+FAIL  running API version matches pyproject
+      expected 0.1.24, running 0.1.23 -> restart the API
+```
+
+### Verified
+
+- 双向验证：进程是旧版本时**报红**（失败数 +1），重启到 0.1.24 后**转绿**。
+- 冒烟检查从 17 项变为 **18 项**，全过。
+- 脚本保持纯 ASCII（PowerShell 5.1 要求）；文档一致性通过。
+
 ## [0.1.24] — 2026-11-04
 
 做了一次**真正的新人演练**：把仓库克隆到全新目录，只照 README 与 CONTRIBUTING 操作。
