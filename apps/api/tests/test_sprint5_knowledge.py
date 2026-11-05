@@ -39,7 +39,7 @@ HEAD_REVISION = "0006_sprint5_knowledge"
 PREVIOUS_REVISION = "0005_sprint4_ai_interactions"
 # Sprint 6 追加 0007、v0.1.2 追加 0008、v0.1.3 追加 0009 后 head 继续前移：
 # 0006 仍是链上的一环，但不再是 head。
-CURRENT_HEAD = "0017_sprint12_ai_core_content"
+CURRENT_HEAD = "0018_sprint13_a5_a6_second_lessons"
 
 NOW = datetime(2026, 4, 1, 12, 0, tzinfo=UTC)
 

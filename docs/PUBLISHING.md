@@ -21,7 +21,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\smoke.ps1   # 18 �
 | 集成档（hermetic） | `149 passed, 1 skipped` |
 | `tsc` / `eslint` / `next build` | 全部退出码 0 |
 | `ruff check app tests migrations` | All checks passed |
-| 文档一致性 | 全部一致（head `0017_sprint12_ai_core_content`，17 个迁移） |
+| 文档一致性 | 全部一致（head `0018_sprint13_a5_a6_second_lessons`，18 个迁移） |
 | 依赖基线 | 运行时 0 告警；开发依赖 16 条（均为 ESLint 链，见 `SECURITY.md`） |
 
 ## 先看这一条：本机只能走 SSH，不能走 HTTPS

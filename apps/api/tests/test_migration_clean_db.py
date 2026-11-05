@@ -35,8 +35,9 @@ BUSINESS_TABLES = {
 }
 SPRINT2_TABLES = {"lessons", "learning_progress", "study_plan_items"}
 # 0003 播种 5 节 Python 基础课，0011 追加 a3/a4、0012 追加 a5/a6 四节 AI 课，
-# 0013 再补上 a2 编程实践 2 节，0017 再补 a3 / a4 两节核心课：干净库上共 13 节。
-SEEDED_LESSONS = 13
+# 0013 再补上 a2 编程实践 2 节，0017 再补 a3 / a4 两节核心课，0018 又补 a5 / a6 各一节
+# 第二节：干净库上共 15 节。
+SEEDED_LESSONS = 15
 SEEDED_SKILL_CODES = [
     "route_a.a1",
     "route_a.a2",
