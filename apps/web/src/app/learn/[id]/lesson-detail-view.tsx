@@ -169,7 +169,7 @@ export function LessonDetailView({ lessonId }: { lessonId: string }) {
     lesson.selfCheck.length === 0;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <header className="border-b border-line pb-6">
         <div className="flex flex-wrap items-center gap-2">
           <Link
@@ -217,7 +217,7 @@ export function LessonDetailView({ lessonId }: { lessonId: string }) {
       {lesson.sections.length > 0 ? (
         <Card>
           <CardHeader title="讲解" />
-          <CardBody className="space-y-5">
+          <CardBody className="space-y-4">
             {lesson.sections.map((section, index) => (
               <section key={index} className="space-y-2 border-l-2 border-accent-line pl-4">
                 {section.heading ? (

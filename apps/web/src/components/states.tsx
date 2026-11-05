@@ -5,11 +5,13 @@ import type { ApiFailure } from "@/lib/http";
 
 type AlertTone = "muted" | "warning" | "danger" | "accent";
 
+// 和 Tag 一样的老问题：warning 之前是灰边白底，看起来和普通说明没区别。
+// 现在四档都用语义色，警告才像警告。
 const ALERT_TONE: Record<AlertTone, string> = {
   muted: "border-line bg-surface",
-  warning: "border-line-strong bg-surface",
-  danger: "border-danger bg-surface",
-  accent: "border-accent bg-accent-soft",
+  warning: "border-warning-line bg-warning-soft",
+  danger: "border-danger-line bg-danger-soft",
+  accent: "border-accent-line bg-accent-soft",
 };
 
 export function Alert({
@@ -27,7 +29,19 @@ export function Alert({
     <div className={cx("rounded-card border px-4 py-3", ALERT_TONE[tone])} role="status">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-[12px] font-medium text-fg">{title}</p>
+          <p
+            className={
+              tone === "warning"
+                ? "text-[12px] font-semibold text-warning-text"
+                : tone === "danger"
+                  ? "text-[12px] font-semibold text-danger-text"
+                  : tone === "accent"
+                    ? "text-[12px] font-semibold text-accent"
+                    : "text-[12px] font-medium text-fg"
+            }
+          >
+            {title}
+          </p>
           {children ? (
             <div className="mt-1 space-y-1 text-[11px] leading-relaxed text-muted">{children}</div>
           ) : null}

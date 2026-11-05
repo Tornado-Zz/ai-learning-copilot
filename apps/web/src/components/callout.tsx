@@ -80,7 +80,8 @@ const CODE_SPAN = /(`[^`]+`|[A-Za-z_][A-Za-z0-9_.]*(?:\[[^\]]*\]|\([^)]*\))(?:\.
 export function RichText({ text }: { text: string }) {
   const parts = text.split(CODE_SPAN).filter((part) => part !== "");
   return (
-    <p className="whitespace-pre-line text-[13.5px] leading-7 text-fg">
+    // 中文长段落一行超过 ~45 字就难跟行；内容区最宽 1200px，这里限到 68ch 左右更易读。
+    <p className="max-w-[68ch] whitespace-pre-line text-[13.5px] leading-7 text-fg">
       {parts.map((part, index) => {
         const ticked = part.startsWith("`") && part.endsWith("`") && part.length > 2;
         const codeish = !ticked && /[[(]/.test(part);
