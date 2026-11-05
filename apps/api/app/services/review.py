@@ -200,12 +200,18 @@ async def schedule_after_submission(
     exercise_id: int,
     submission_id: int,
     is_passed: bool | None,
+    verification_method: str = "static_rule",
 ) -> dict[str, object] | None:
     """R1/R2/R3: advance the mistake book for one judged submission.
 
     Never commits: the caller's transaction holds both the submission row and
     this row, so a failure rolls the judgement back as well.
+
+    自检申报的「通过」**不推进**复习：错题本的价值在于把你答错的题重新考一次，
+    而自检只是你声称自己本地跑通了，系统没验证过。允许自检推进，等于勾三次
+    「我已跑通」就能清空错题本。答错仍然照常重置（申报失败没有作弊动机）。
     """
+    advancing_allowed = verification_method != "self_report"
     today = await local_today(session, user_id)
     if is_passed is False:
         row = (
@@ -223,6 +229,9 @@ async def schedule_after_submission(
             .mappings()
             .first()
         )
+    elif is_passed is True and not advancing_allowed:
+        # 自检通过：什么都不写。行原样停在 pending，streak 不涨。
+        return None
     elif is_passed is True:
         row = (
             (

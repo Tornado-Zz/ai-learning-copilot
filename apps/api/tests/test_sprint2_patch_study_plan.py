@@ -100,6 +100,30 @@ async def _confirmed(
     return monday, today
 
 
+async def _calendar(db_session: AsyncSession) -> tuple[date, date]:
+    """只读地取本周周一与本地今天，不改任何档案。"""
+    timezone_name = "Asia/Shanghai"
+    monday = (
+        await db_session.execute(SELECT_WEEK_START, {'timezone': timezone_name})
+    ).scalar_one()
+    today = (
+        await db_session.execute(SELECT_LOCAL_TODAY, {'timezone': timezone_name})
+    ).scalar_one()
+    return monday, today
+
+
+def _future_days(today: date, count: int) -> list[int]:
+    """本周内「今天及以后」的 count 个连续星期号；放不下时返回空列表。
+
+    这些用例原先硬编码 study_days=[3]（周三）。一旦运行日越过周三，
+    排课器不会给过去的日子排东西，用例就整片变红——不是代码坏了，是测试
+    跟着星期几漂移。改为从今天推算，并在本周放不下时明确跳过。
+    """
+    start = today.isoweekday()
+    days = [start + offset for offset in range(count)]
+    return days if days and days[-1] <= 7 else []
+
+
 async def _rows(
     db_session: AsyncSession, user_id: int, monday: date
 ) -> list[dict[str, object]]:
@@ -142,10 +166,13 @@ async def test_patch_01_expired_item_is_resurrected_when_its_study_day_returns(
     baseline = await _baseline(api, db_session)
     user_id = int(baseline["user_id"])
     try:
-        monday, _today = await _confirmed(
-            db_session, user_id, study_days=[3], daily_minutes=120
-        )
-        wednesday = monday + timedelta(days=2)
+        monday, today = await _calendar(db_session)
+        days = _future_days(today, 2)
+        if len(days) < 2:
+            pytest.skip("本周放不下两个「今天及以后」的学习日（今天已是周日）")
+        day_a, day_b = days
+        await _confirmed(db_session, user_id, study_days=[day_a], daily_minutes=120)
+        target_day = monday + timedelta(days=day_a - 1)
 
         await api.post("/api/v1/study-plan/generate")
         rows_a = await _rows(db_session, user_id, monday)
@@ -153,11 +180,11 @@ async def test_patch_01_expired_item_is_resurrected_when_its_study_day_returns(
         carrier = next(
             row
             for row in rows_a
-            if row["plan_date"] == wednesday and row["status"] == "scheduled"
+            if row["plan_date"] == target_day and row["status"] == "scheduled"
         )
 
-        # A→B：学习日改到周四，周三的行作废（expired），不是删除
-        await _set_profile(db_session, user_id, study_days=[4], daily_minutes=120)
+        # A→B：学习日改到另一天，原学习日的行作废（expired），不是删除
+        await _set_profile(db_session, user_id, study_days=[day_b], daily_minutes=120)
         await api.post("/api/v1/study-plan/generate")
         rows_b = await _rows(db_session, user_id, monday)
         by_id_b = {int(row["id"]): row for row in rows_b}
@@ -165,7 +192,7 @@ async def test_patch_01_expired_item_is_resurrected_when_its_study_day_returns(
         count_b = len(rows_b)
 
         # B→A：学习日改回周三，同一行受控复活
-        await _set_profile(db_session, user_id, study_days=[3], daily_minutes=120)
+        await _set_profile(db_session, user_id, study_days=[day_a], daily_minutes=120)
         await api.post("/api/v1/study-plan/generate")
         rows_c = await _rows(db_session, user_id, monday)
         by_id_c = {int(row["id"]): row for row in rows_c}
@@ -191,11 +218,17 @@ async def test_patch_02_budget_shrink_then_restore_never_overspends_nor_loses_le
     baseline = await _baseline(api, db_session)
     user_id = int(baseline["user_id"])
     try:
-        monday, today = await _confirmed(
-            db_session, user_id, study_days=[3, 5], daily_minutes=60
-        )
-        study_dates = [monday + timedelta(days=2), monday + timedelta(days=4)]
-        assert all(day >= today for day in study_dates), "周三/周五必须都还没过去"
+        monday, today = await _calendar(db_session)
+        days = _future_days(today, 2)
+        if len(days) < 2:
+            pytest.skip("本周放不下两个「今天及以后」的学习日（今天已是周日）")
+        day_a, day_b = days
+        await _confirmed(db_session, user_id, study_days=[day_a, day_b], daily_minutes=60)
+        study_dates = [
+            monday + timedelta(days=day_a - 1),
+            monday + timedelta(days=day_b - 1),
+        ]
+        assert all(day >= today for day in study_dates), "两个学习日都必须还没过去"
 
         await api.post("/api/v1/study-plan/generate")
         rows_1 = await _rows(db_session, user_id, monday)
@@ -204,7 +237,7 @@ async def test_patch_02_budget_shrink_then_restore_never_overspends_nor_loses_le
         assert len(targets_1) >= 2
 
         # 预算 60 -> 30：只能花剩下的额度
-        await _set_profile(db_session, user_id, study_days=[3, 5], daily_minutes=30)
+        await _set_profile(db_session, user_id, study_days=[day_a, day_b], daily_minutes=30)
         await api.post("/api/v1/study-plan/generate")
         rows_2 = await _rows(db_session, user_id, monday)
         totals_2 = _day_totals(rows_2, study_dates)
@@ -215,7 +248,7 @@ async def test_patch_02_budget_shrink_then_restore_never_overspends_nor_loses_le
         }
 
         # 预算 30 -> 60：已作废的行随目标集合回来（受控复活），课程一门不丢
-        await _set_profile(db_session, user_id, study_days=[3, 5], daily_minutes=60)
+        await _set_profile(db_session, user_id, study_days=[day_a, day_b], daily_minutes=60)
         await api.post("/api/v1/study-plan/generate")
         rows_3 = await _rows(db_session, user_id, monday)
         totals_3 = _day_totals(rows_3, study_dates)
@@ -398,10 +431,13 @@ async def test_patch_09_response_separates_history_from_scheduled_within_budget(
     baseline = await _baseline(api, db_session)
     user_id = int(baseline["user_id"])
     try:
-        monday, _today = await _confirmed(
-            db_session, user_id, study_days=[3], daily_minutes=60
-        )
-        wednesday = monday + timedelta(days=2)
+        monday, today = await _calendar(db_session)
+        days = _future_days(today, 1)
+        if not days:
+            pytest.skip("本周已无「今天及以后」的学习日")
+        study_day = days[0]
+        await _confirmed(db_session, user_id, study_days=[study_day], daily_minutes=60)
+        wednesday = monday + timedelta(days=study_day - 1)
         await api.post("/api/v1/study-plan/generate")
         rows_1 = await _rows(db_session, user_id, monday)
         target = next(

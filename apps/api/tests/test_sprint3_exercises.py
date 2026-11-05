@@ -572,6 +572,36 @@ async def _submit(
     )
 
 
+# 第 1 课的 ex1 规则是固定的填空题，这段代码满足它的全部必须写法、不触发禁止写法。
+# 间隔机制用例必须走「静态规则通过」：自检申报的通过按设计不推进错题本。
+_STATIC_PASS_CODE = (
+    'name = "小明"\n'
+    "age = 18\n"
+    "height = 1.75\n"
+    "is_student = True\n"
+    "print(type(name))\n"
+    "print(type(is_student))\n"
+    "print(str(age))\n"
+)
+
+
+async def _submit_static_pass(
+    session: AsyncSession, user_id: int, exercise_id: int
+) -> dict[str, object]:
+    """提交一段能通过静态规则的代码，确保判题口径是 static_rule。"""
+    judged = await exercises_service.create_submission(
+        session,
+        user_id,
+        exercise_id,
+        SubmissionCreateRequest(code_text=_STATIC_PASS_CODE),
+    )
+    assert judged["verification_strength"] == "assessed", (
+        "预置代码必须走静态规则通过，否则间隔机制用例会测到错误的路径"
+    )
+    assert judged["is_passed"] is True
+    return judged
+
+
 async def _review_row(session: AsyncSession, user_id: int, exercise_id: int):
     return (
         (await session.execute(SELECT_REVIEW_ROW, {"user_id": user_id, "exercise_id": exercise_id}))
@@ -685,7 +715,7 @@ async def test_14_a_passed_answer_takes_the_three_day_interval(
     today = await _today(db_session)
     await _seed_review_row(db_session, user_id, exercise_id, next_review_on=today)
 
-    await _submit(db_session, user_id, exercise_id, passed=True)
+    await _submit_static_pass(db_session, user_id, exercise_id)
 
     row = await _review_row(db_session, user_id, exercise_id)
     assert int(row["streak"]) == 1
@@ -714,18 +744,18 @@ async def test_15_seven_days_then_fourteen_days_and_done(
         last_result="passed",
     )
 
-    await _submit(db_session, user_id, exercise_id, passed=True)
+    await _submit_static_pass(db_session, user_id, exercise_id)
     row = await _review_row(db_session, user_id, exercise_id)
     assert (int(row["streak"]), int(row["interval_days"]), row["status"]) == (2, 7, "pending")
     assert row["next_review_on"] == today + timedelta(days=7)
 
-    await _submit(db_session, user_id, exercise_id, passed=True)
+    await _submit_static_pass(db_session, user_id, exercise_id)
     row = await _review_row(db_session, user_id, exercise_id)
     assert (int(row["streak"]), int(row["interval_days"]), row["status"]) == (3, 14, "done")
     assert row["next_review_on"] == today + timedelta(days=14)
 
     # 第 4 次答对：已经没有 pending 行，字段一个都不动（R3）
-    await _submit(db_session, user_id, exercise_id, passed=True)
+    await _submit_static_pass(db_session, user_id, exercise_id)
     again = await _review_row(db_session, user_id, exercise_id)
     assert (int(again["streak"]), int(again["interval_days"]), again["status"]) == (3, 14, "done")
     assert review_service.next_interval_days(2) == 7
@@ -739,7 +769,7 @@ async def test_16_a_passed_answer_without_a_row_creates_nothing(
     await _confirm(db_session, user_id)
     exercise_id = (await _exercise_ids(db_session, 1))[0]
 
-    judged = await _submit(db_session, user_id, exercise_id, passed=True)
+    judged = await _submit_static_pass(db_session, user_id, exercise_id)
     assert judged["is_passed"] is True
     assert (await _review_row(db_session, user_id, exercise_id)) is None
     assert int((await db_session.execute(COUNT_USER_REVIEWS, {"user_id": user_id})).scalar_one()) == 0
@@ -762,7 +792,7 @@ async def test_17_a_done_row_is_kept_and_only_flips_back_to_pending(
         last_result="passed",
     )
 
-    await _submit(db_session, user_id, exercise_id, passed=True)
+    await _submit_static_pass(db_session, user_id, exercise_id)
     row = await _review_row(db_session, user_id, exercise_id)
     assert row["status"] == "done" and int(row["streak"]) == 3
     assert int(row["id"]) == row_id

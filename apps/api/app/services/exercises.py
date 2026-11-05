@@ -146,7 +146,8 @@ INSERT_SUBMISSION = text(
            :is_passed, 'none'
     FROM submissions s
     WHERE s.user_id = :user_id AND s.exercise_id = :exercise_id
-    RETURNING id, attempt_no, is_passed, verification_strength, created_at
+    RETURNING id, attempt_no, is_passed, verification_strength, verification_method,
+              created_at
     """
 )
 
@@ -423,6 +424,7 @@ async def create_submission(
             exercise_id=exercise_id,
             submission_id=int(row["id"]),
             is_passed=None if row["is_passed"] is None else bool(row["is_passed"]),
+            verification_method=str(row["verification_method"]),
         )
         await session.commit()
     except IntegrityError as exc:

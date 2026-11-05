@@ -380,6 +380,10 @@ export function ExerciseView({ exerciseId }: { exerciseId: string }) {
               <p className="text-[11px] leading-relaxed text-muted">
                 勾选后本次提交按自检记录：这类结果永远是「未验证（自检）」，不会变成已验证，也不会改变能力等级；
                 不勾选则只做静态规则判题（不发送自检字段）。
+                <strong className="font-medium text-fg">
+                  自检通过也不推进错题本复习
+                </strong>
+                ——错题本的意义是把答错的题重新考一次，而自检只是你声称本地跑通了，系统没验证过。
               </p>
 
               {submitFailure ? (

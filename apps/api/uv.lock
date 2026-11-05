@@ -4,7 +4,7 @@ requires-python = "==3.12.*"
 
 [[package]]
 name = "ai-learning-copilot-api"
-version = "0.1.20"
+version = "0.1.21"
 source = { virtual = "." }
 dependencies = [
     { name = "alembic" },
