@@ -568,9 +568,23 @@ export function ProgressView() {
                             {domain.source === null ? "" : " · " + domain.source}
                           </p>
                         </div>
-                        <span className="shrink-0 font-mono text-[11px] text-fg">
-                          {domain.level === null ? DASH : levelLabel(domain.level)}
-                        </span>
+                        <div className="flex min-w-[120px] shrink-0 items-center gap-2">
+                          <span className="flex flex-1 items-center gap-1" aria-hidden="true">
+                            {[1, 2, 3, 4].map((step) => (
+                              <span
+                                key={step}
+                                className={
+                                  domain.level !== null && step <= domain.level
+                                    ? "h-2 flex-1 rounded-full bg-accent"
+                                    : "h-2 flex-1 rounded-full bg-elevated"
+                                }
+                              />
+                            ))}
+                          </span>
+                          <span className="shrink-0 font-mono text-[11px] text-fg">
+                            {domain.level === null ? DASH : levelLabel(domain.level)}
+                          </span>
+                        </div>
                       </li>
                     ))}
                   </ul>

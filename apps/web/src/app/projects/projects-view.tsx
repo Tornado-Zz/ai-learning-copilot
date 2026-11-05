@@ -247,20 +247,34 @@ export function ProjectsView() {
                         {requirement.met === null ? (
                           <Tag>未返回</Tag>
                         ) : requirement.met ? (
-                          <Tag tone="accent">已达标</Tag>
+                          <Tag tone="success">已达标</Tag>
                         ) : (
-                          <Tag>未达标</Tag>
+                          <Tag tone="warning">
+                            还差{" "}
+                            {requirement.required !== null && requirement.actual !== null
+                              ? String(Math.max(requirement.required - requirement.actual, 0))
+                              : DASH}
+                          </Tag>
                         )}
                       </div>
                     </div>
                     {ratio === null ? (
                       <p className="text-[11px] text-muted">完成比例：{DASH}（required 缺失或为 0）</p>
                     ) : (
-                      <Meter
-                        value={ratio}
-                        tone={requirement.met === true ? "success" : "accent"}
-                        label={requirement.label ?? requirement.key}
-                      />
+                      <div className="space-y-1">
+                        <Meter
+                          value={ratio}
+                          tone={requirement.met === true ? "success" : "accent"}
+                          label={requirement.label ?? requirement.key}
+                        />
+                        <p className="text-[11px] leading-relaxed text-muted">
+                          {requirement.met === true
+                            ? "已满足这条要求。"
+                            : "完成比例 " +
+                              String(ratio) +
+                              "%；四条全部满足后才进入作品提交阶段。"}
+                        </p>
+                      </div>
                     )}
                   </li>
                 );
