@@ -5,8 +5,14 @@ import { Button } from "@/components/form";
 import { EmptyState, ErrorPanel, LoadingPanel } from "@/components/states";
 import { Card, CardBody, CardHeader, Meter, Tag } from "@/components/ui";
 import { verificationMethodLabel } from "@/lib/exercises";
+import {
+  AI_INTERACTIONS_PATH,
+  aiStatusLabel,
+  parseInteractionList,
+} from "@/lib/ai-tutor";
+import type { AiInteractionRecord } from "@/lib/ai-tutor";
 import { formatMinutes } from "@/lib/learning";
-import { levelLabel } from "@/lib/labels";
+import { formatDateTime, levelLabel } from "@/lib/labels";
 import { apiRequest } from "@/lib/http";
 import type { ApiFailure } from "@/lib/http";
 
@@ -323,17 +329,25 @@ function MissingGroup({ name }: { name: string }) {
 
 export function ProgressView() {
   const [state, setState] = useState<ViewState>({ status: "loading" });
+  // AI 导师的调用台账：后端一直有这个接口，前端有路径与解析器但从未调用过。
+  // 课程里讲「token 是计费单位」，这里是它变成真实数字的地方。
+  const [aiCalls, setAiCalls] = useState<AiInteractionRecord[] | null>(null);
   const [reloadToken, setReloadToken] = useState(0);
 
   useEffect(() => {
     let active = true;
     void (async () => {
-      const result = await apiRequest<ProgressOverview>(PROGRESS_OVERVIEW_PATH, {
-        parse: parseProgressOverview,
-      });
+      const [result, callsResult] = await Promise.all([
+        apiRequest<ProgressOverview>(PROGRESS_OVERVIEW_PATH, { parse: parseProgressOverview }),
+        apiRequest<AiInteractionRecord[]>(AI_INTERACTIONS_PATH + "?limit=10", {
+          parse: parseInteractionList,
+        }),
+      ]);
       if (!active) {
         return;
       }
+      // 台账失败不影响进度页：它只是补充信息，null 表示「没拿到」，页面写清楚而不是显示空表。
+      setAiCalls(callsResult.ok ? callsResult.data : null);
       if (!result.ok) {
         setState({ status: "error", failure: result.failure });
         return;
@@ -604,6 +618,45 @@ export function ProgressView() {
                     )}
                   </div>
                   <span className="font-mono text-[10px] text-muted">{shortDate(point.date)}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </CardBody>
+      </Card>
+
+      <Card>
+        <CardHeader
+          title="AI 导师调用"
+          description="GET /api/v1/ai/interactions 的最近 10 条：课程里讲「token 是计费单位」，这里是真实数字。"
+          action={<Tag>{aiCalls === null ? "未返回" : String(aiCalls.length) + " 条"}</Tag>}
+        />
+        <CardBody>
+          {aiCalls === null ? (
+            <p className="text-[11px] leading-relaxed text-muted">
+              接口没有返回调用记录（可能未配置模型密钥，或还没有提问过）。
+            </p>
+          ) : aiCalls.length === 0 ? (
+            <p className="text-[11px] leading-relaxed text-muted">
+              还没有向 AI 导师提问过。在课程或练习页底部展开「AI 导师」提问，这里会出现每一次调用的
+              token 与状态。
+            </p>
+          ) : (
+            <ul className="divide-y divide-line">
+              {aiCalls.map((call, index) => (
+                <li
+                  key={call.interactionId ?? String(index)}
+                  className="flex flex-wrap items-center justify-between gap-2 py-2 text-[11px] first:pt-0 last:pb-0"
+                >
+                  <span className="font-mono tabular-nums text-muted">
+                    {call.createdAt === null ? DASH : formatDateTime(call.createdAt)}
+                  </span>
+                  <span className="text-muted">{call.model || DASH}</span>
+                  <span className="text-muted">{call.assistanceLevel || DASH}</span>
+                  <span className="font-mono tabular-nums text-fg">
+                    {call.totalTokens === null ? DASH : String(call.totalTokens) + " tokens"}
+                  </span>
+                  <span className="text-muted">{aiStatusLabel(call.status)}</span>
                 </li>
               ))}
             </ul>
