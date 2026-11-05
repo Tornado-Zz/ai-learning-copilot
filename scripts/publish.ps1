@@ -44,8 +44,11 @@ if (-not $SkipTests) {
 }
 
 Write-Host '=== 5. remote ===' -ForegroundColor Cyan
-$existing = (git remote get-url origin 2>$null)
-if ($LASTEXITCODE -eq 0 -and $existing) {
+# List remotes instead of calling get-url: with no remote, get-url writes to stderr,
+# and $ErrorActionPreference='Stop' turns that into a fatal error before the push step.
+$remotes = @(git remote)
+if ($remotes -contains 'origin') {
+    $existing = (git remote get-url origin)
     Write-Host ('    replacing existing origin: ' + $existing)
     git remote remove origin
 }
