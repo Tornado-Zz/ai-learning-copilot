@@ -60,7 +60,7 @@ Get-Content $HOME\.ssh\id_ed25519.pub          # 复制这一整行
 ```powershell
 # 一条命令：先自检，再配置 origin 并推送 main 与全部标签（从不 force push）
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\publish.ps1 `
-  -RepoUrl https://github.com/<你的账号>/<仓库名>.git
+  -RepoUrl git@github.com:<你的账号>/<仓库名>.git
 ```
 
 脚本会依次：工作区是否干净 → **扫描全部历史的密钥**（命中即中止）→ 文档一致性 → 单元测试 → 配置 origin → 推送。加 `-SkipTests` 可跳过测试。
@@ -68,9 +68,9 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\publish.ps1 `
 想手动执行等价命令：
 
 ```powershell
-git remote add origin https://github.com/<你的账号>/<仓库名>.git
+git remote add origin git@github.com:<你的账号>/<仓库名>.git
 git push -u origin main
-git push origin --tags          # 推送全部 37 个标签
+git push origin --tags          # 推送全部 39 个标签
 ```
 
 3. 推送后确认三件事：
@@ -104,6 +104,31 @@ PostgreSQL 数据在 Docker volume 里，`infra/docker-compose.yml` 只提供本
 ### 3. 已知边界要写清楚
 
 `README.md`、`docs/API.md`、`docs/UX_NOTES.md` 已如实声明：**单用户、无鉴权、服务端不执行用户代码（但会做语法解析）、AI 与知识库入库默认关闭、静态规则可被字符串常量绕过**。这些是 v0.1.x 的设计取舍，不是遗漏。
+
+## 方式 C：离线中转（本机网络受限时最省事）
+
+如果这台机器连不上 GitHub（见文首），可以把它整个打包成一个文件，拿到任何能上网的机器上推送。
+
+**第一步，在本机打包**（已生成一份在 `F:\ai自学产品\ai-learning-copilot.bundle`，2.4 MB）：
+
+```powershell
+cd F:\ai自学产品\ai-learning-copilot
+git bundle create ..\ai-learning-copilot.bundle --all      # 含全部分支与标签
+```
+
+**第二步，在能上网的机器上**（把 bundle 文件拷过去）：
+
+```powershell
+git clone ai-learning-copilot.bundle ai-learning-copilot
+cd ai-learning-copilot
+git remote set-url origin git@github.com:<你的账号>/<仓库名>.git   # 克隆自 bundle，origin 指向文件本身
+git push -u origin main
+git push origin --tags
+```
+
+> 注意 `git remote set-url`：从 bundle 克隆出来的仓库，`origin` 指向那个 bundle 文件，直接 push 会报 `failed to push some refs`。
+
+**这条路径验证过**：用本地裸仓库当远端，bundle → 克隆 → 推 main → 推标签，远端得到 **76 提交 / 39 标签 / HEAD `d6e1ea4`**，与源仓库完全一致。
 
 ## 推送之后
 

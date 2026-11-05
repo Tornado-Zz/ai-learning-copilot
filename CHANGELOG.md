@@ -5,6 +5,37 @@
 
 ## [Unreleased]
 
+## [0.1.40] — 2026-11-05
+
+给本机网络受限的情况补一条**不依赖本机网络**的发布路径：**方式 C 离线中转（git bundle）**。
+
+### 背景
+
+v0.1.39 实测本机 `github.com:443` 不可达、SSH 可达但缺密钥。SSH 需要账号侧配置；离线中转不需要。
+
+### Added
+
+- 已生成 `F:\ai自学产品\ai-learning-copilot.bundle`（2.4 MB，含**全部分支与标签**），可直接拷到任何能上网的机器。
+- `docs/PUBLISHING.md` 新增「方式 C」：本机打包 → 拷走 → `git clone <bundle>` → `git remote set-url origin` → 推送，并说明**必须 set-url**（bundle 克隆的 origin 指向文件本身）。
+- 指南里的命令从 https 形式统一改为 **SSH 形式**（因为本机 https 不通，照旧命令必然失败），标签数更新为 39。
+
+### Verified（端到端模拟过，不是纸上流程）
+
+| 步骤 | 结果 |
+| --- | --- |
+| `git bundle verify` | `The bundle records a complete history` |
+| 从 bundle 克隆 | **76 提交 / 39 标签 / 分支 main / HEAD `d6e1ea4` / 244 文件**，与源仓库一致 |
+| 模拟推送（本地裸仓库当远端） | `push main` 与 `push --tags` 均退出码 0；远端得到 **76 提交 / 39 标签**，最新标签 `v0.1.39` |
+| 清理 | 测试目录与假远端已删除，无残留 |
+
+### 三条路径现在都摆在桌面上
+
+| 路径 | 前提 |
+| --- | --- |
+| A：`scripts/publish.ps1`（SSH） | 在 GitHub 加上本机公钥（或已用 SSH 克隆过别的仓库） |
+| B：HTTPS + token | **本机不可用**（443 不通） |
+| C：bundle 离线中转 | 只需任意一台能上网的机器 |
+
 ## [0.1.39] — 2026-11-05
 
 发现并处理了一个**会让推送必然失败**的环境事实：本机只能走 SSH，走不了 HTTPS。
