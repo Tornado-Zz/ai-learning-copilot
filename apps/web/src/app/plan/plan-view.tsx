@@ -315,8 +315,25 @@ export function PlanView() {
     );
   };
 
+  // 六个域全都没评估过 → 计划只能按默认 L0 排，理由会很空洞。此时最该做的是先诊断。
+  const neverAssessed = me.skills.length > 0 && me.skills.every((skill) => skill.state === "unassessed");
+
   return (
     <div className="space-y-6">
+      {neverAssessed ? (
+        <Alert tone="accent" title="还没做过能力诊断：计划现在只能按默认 L0 排">
+          <p>
+            20 道题、约 10 分钟。做完之后，计划会按你六个领域的真实水平挑选课程与练习，
+            每一条安排的「理由」也才有依据；现在生成的计划一律按 L0 起步。
+          </p>
+          <p className="mt-1">
+            <Link href="/diagnostic" className="underline hover:text-fg">
+              去做诊断
+            </Link>
+            <span className="text-muted">（做完再回来生成计划）</span>
+          </p>
+        </Alert>
+      ) : null}
       <Card>
         <CardHeader
           title="本周计划"
