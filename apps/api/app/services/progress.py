@@ -114,11 +114,19 @@ SELECT_BY_EVIDENCE = text(
 # contract 3.3 resolution.
 SELECT_CAPABILITY_ROWS = text(
     """
+    -- One row per skill: the level the resolver would report. Taking DISTINCT ON here
+    -- keeps the mean correct even if legacy duplicate rows survive somewhere, instead
+    -- of dividing by a row count the UI never promised.
+    WITH current AS (
+        SELECT DISTINCT ON (l.skill_id) l.skill_id, l.level
+        FROM user_skill_levels l
+        WHERE l.user_id = :user_id
+        ORDER BY l.skill_id, (l.assessment_state = 'established') DESC, l.created_at DESC, l.id DESC
+    )
     SELECT s.code AS skill_code, s.name_zh AS name,
-           sum(usl.level) AS level_sum, count(*) AS row_count
-    FROM user_skill_levels usl
-    JOIN skills s ON s.id = usl.skill_id
-    WHERE usl.user_id = :user_id
+           sum(current.level) AS level_sum, count(*) AS row_count
+    FROM current
+    JOIN skills s ON s.id = current.skill_id
     GROUP BY s.code, s.name_zh
     ORDER BY s.code
     """

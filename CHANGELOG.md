@@ -5,6 +5,41 @@
 
 ## [Unreleased]
 
+## [0.1.47] — 2026-11-05
+
+**能力平均分算错了**：`/progress` 的 `capability.average_level` 按**证据行数**求平均，而一个域可能有多行历史证据。
+
+### 问题
+
+`user_skill_levels` 是**证据历史**：同一个域可以先有一条诊断行（L0，`assessed_below_threshold`），后来多一条练习行（L2，`established`）。读取侧的 `levels.resolve_current_levels()` 用 `DISTINCT ON` 正确挑出「该域当前的等级 = L2」。
+
+但 `progress._capability()` 用的是 `sum(level) / count(*)`——**行级平均**。于是同一个用户：
+
+- 域列表显示 a4 = L2（正确）
+- 平均分却按 (0 + 2) / 2 = **1.0** 算（应为 2/6 域 = 0.3）
+
+**学习者越早做过诊断、越晚拿到高级证据，分数被稀释得越厉害**——典型的「越努力看起来越差」。
+
+### Fixed
+
+`SELECT_CAPABILITY_ROWS` 改为先 `DISTINCT ON (skill_id)` 取该域当前行，再求平均。没有改写入路径、没有改表结构——**历史行是有意保留的**（解析器靠多行历史做档位择优）。
+
+### Verified
+
+- 新增回归测试 `tests/test_capability_average.py`：造两条同域证据（L0 诊断 + L2 练习），断言域等级仍为 2、且平均分按 **6 个域**而不是 7 行去除。
+- **测试有效性验证**：把修复临时还原，该测试立刻失败；恢复后通过——不是写了个永远绿的测试。
+- 产品库 `166 passed` / `149 passed, 1 skipped`；`ruff` 干净。
+
+### 一次走偏与回退（如实记录）
+
+最初我判断「重复行本身是 bug」，写了迁移 0020 去重并加唯一索引，还把诊断写入改成 upsert。**这是错的**：
+
+- 唯一索引与「一个域保留多行历史」的设计冲突；
+- upsert 会覆盖**更高档的证据**（已有 `test_10_higher_tier_evidence_is_not_overwritten` 正是守这条），测试立刻变红；
+- 集成夹具也依赖多行（`INSERT_SPRINT6_DOMAIN_LEVELS` 反复插不同等级）。
+
+迁移已删除、upsert 已回退、head 回到 **0019**。**副作用需记录**：该迁移在产品库执行过一次，把 `user_skill_levels` 从 36 行去重到 6 行（6 次诊断 × 6 域，各行等级相同，均为 L2/established）。这 6 条诊断本身仍在 `diagnostic_attempts` 里，未受影响。
+
 ## [0.1.46] — 2026-11-05
 
 系统扫描「后端有能力、界面没接」的缺口，结论：**没有需要补的功能，但需要把设计意图写清楚**。
