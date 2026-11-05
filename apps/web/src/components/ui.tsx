@@ -50,14 +50,17 @@ export function CardBody({
   return <div className={cx("px-5 py-4", className)}>{children}</div>;
 }
 
-type TagTone = "neutral" | "accent" | "success" | "warning" | "danger";
+type TagTone = "neutral" | "accent" | "info" | "success" | "warning" | "danger";
 
+// 之前 success / warning / danger 三档是同一个灰色，标签看起来都一样。
+// 现在与语义色对齐：标签的颜色就是它表达的状态。
 const TAG_TONE: Record<TagTone, string> = {
   neutral: "border-line bg-elevated text-muted",
-  accent: "border-transparent bg-accent-soft text-accent",
-  success: "border-line bg-elevated text-fg",
-  warning: "border-line bg-elevated text-fg",
-  danger: "border-line bg-elevated text-fg",
+  accent: "border-accent-line bg-accent-soft text-accent",
+  info: "border-info-line bg-info-soft text-info-text",
+  success: "border-success-line bg-success-soft text-success-text",
+  warning: "border-warning-line bg-warning-soft text-warning-text",
+  danger: "border-danger-line bg-danger-soft text-danger-text",
 };
 
 export function Tag({

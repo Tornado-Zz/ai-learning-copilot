@@ -17,12 +17,15 @@ import { planItemReadOnlyNote } from "@/lib/plan-rules";
 // v0.1.2：kind 新增 review（间隔复习），与 exercise 同属动手项、共用强调色；文案统一由 planItemKindLabel 给出。
 const ACTION_KINDS = ["exercise", "review"];
 
+// 课程 / 练习 / 复习三类用不同颜色，扫一眼就知道今天是什么类型的任务。
+const KIND_TONE: Record<string, "accent" | "info" | "warning" | "neutral"> = {
+  lesson: "accent",
+  exercise: "info",
+  review: "warning",
+};
+
 function KindBadge({ kind }: { kind: string }) {
-  return (
-    <Tag tone={ACTION_KINDS.indexOf(kind) >= 0 ? "accent" : "neutral"}>
-      {planItemKindLabel(kind)}
-    </Tag>
-  );
+  return <Tag tone={KIND_TONE[kind] ?? "neutral"}>{planItemKindLabel(kind)}</Tag>;
 }
 
 // 跳转文案跟随 kind，不再把 review 行说成「去学习」；未知 kind 用中性说法。
@@ -31,6 +34,17 @@ const KIND_CTA: Record<string, string> = {
   exercise: "去练习 →",
   review: "去复习 →",
 };
+
+// 状态标签按语义上色：已完成=绿、已跳过=灰、已过期=琥珀、待执行=中性。
+function statusTone(status: string): "success" | "warning" | "danger" | "neutral" {
+  if (status === "done") {
+    return "success";
+  }
+  if (status === "expired") {
+    return "warning";
+  }
+  return "neutral";
+}
 
 function Minutes({ value }: { value: number }) {
   return <span className="font-mono text-[11px] tabular-nums text-muted">{formatMinutes(value)}</span>;
@@ -51,6 +65,11 @@ export function PlanItemRow({
   // 终态（done/skipped）与 expired 行只读：用文案说明状态语义，按钮由调用方按 planItemActions 决定。
   const readOnlyNote = planItemReadOnlyNote(item.status);
   const rationale = item.rationale ? item.rationale : "后端未返回 rationale：本页不替它编造安排理由。";
+  // 后端把理由写成「触发条件 -> 决策」两段。之前整串挤在一行里很难读，
+  // 这里按箭头拆开：左边是「为什么现在排它」，右边是「排了什么」。
+  const arrow = rationale.indexOf("->");
+  const trigger = arrow > 0 ? rationale.slice(0, arrow).trim() : "";
+  const decision = arrow > 0 ? rationale.slice(arrow + 2).trim() : rationale;
 
   return (
     <li className="flex flex-wrap items-start gap-2 px-4 py-3">
@@ -71,14 +90,25 @@ export function PlanItemRow({
             <span className="text-[13px] font-medium text-fg">{title}</span>
           )}
           <Minutes value={item.plannedMinutes} />
-          <Tag>{PLAN_ITEM_STATUS_LABELS[item.status]}</Tag>
+          <Tag tone={statusTone(item.status)}>{PLAN_ITEM_STATUS_LABELS[item.status]}</Tag>
           {readOnlyNote ? (
             <span className="text-[11px] leading-relaxed text-muted">{readOnlyNote}</span>
           ) : null}
         </div>
-        {open ? null : (
-          <p className="mt-1 line-clamp-1 text-[11px] leading-relaxed text-muted">{rationale}</p>
-        )}
+        {trigger ? (
+          <p className="mt-1 flex flex-wrap items-baseline gap-1.5 pl-7 text-[11px] leading-relaxed text-muted">
+            <span className="rounded-[3px] bg-elevated px-1 py-px font-medium text-muted">为什么是今天</span>
+            <span className="min-w-0">{trigger}</span>
+          </p>
+        ) : null}
+        <p className="mt-1 line-clamp-1 pl-7 text-[11.5px] leading-relaxed text-fg">
+          {trigger ? (
+            <span className="mr-1.5 rounded-[3px] bg-accent-soft px-1 py-px font-medium text-accent">
+              排了什么
+            </span>
+          ) : null}
+          {decision}
+        </p>
         <button
           type="button"
           aria-expanded={open}
@@ -118,7 +148,7 @@ export function PlanItemCard({ item, index }: { item: PlanItem; index: number })
       </div>
       <p className="mt-1.5 line-clamp-2 pl-7 text-[12px] leading-relaxed text-muted">{rationale}</p>
       <div className="mt-1.5 flex flex-wrap items-center gap-2 pl-7">
-        <Tag>{PLAN_ITEM_STATUS_LABELS[item.status]}</Tag>
+        <Tag tone={statusTone(item.status)}>{PLAN_ITEM_STATUS_LABELS[item.status]}</Tag>
         {readOnlyNote ? <span className="text-[11px] text-muted">{readOnlyNote}</span> : null}
         {item.targetHref !== null ? (
           <span className="ml-auto text-[11px] font-medium text-accent">
