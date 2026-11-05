@@ -5,6 +5,37 @@
 
 ## [Unreleased]
 
+## [0.1.26] — 2026-11-04
+
+代码终检发现一个**空旋钮**：`DEEPSEEK_MODEL_COMPLEX` 在 9 处被宣传，代码里从未读取。
+
+### 问题
+
+这个配置项定义在 `Settings` 里、写在两份 `.env.example`、并在 README 与架构文档中被描述为「复杂任务预留模型」。但全局搜索的结果是：**零处读取**，「复杂任务路由」也从未实现。
+
+运维照着文档把它设成某个模型，**什么都不会发生**——这类沉默失效比报错难查得多。
+
+### Fixed
+
+- 移除 `Settings.deepseek_model_complex` 与两份 `.env.example` 中的 `DEEPSEEK_MODEL_COMPLEX`。
+- `README.md` 与 `docs/ARCHITECTURE.md`（当前状态文档）改为如实说明：只有一个模型配置项，早期提到的复杂任务模型未实现。历史设计文档（PRD / ROADMAP / BUILD_PLAN）保留原样，因为它们记录的是当时的计划。
+
+### Added
+
+- **`tests/test_config_documented.py`**（2 条）：
+  - `apps/api/.env.example` 的键与 `Settings` 字段必须**一一对应**——多一个是空旋钮，少一个是没写文档；
+  - 根目录 `.env.example` 除 docker compose 的 `POSTGRES_*` 与前端 `NEXT_PUBLIC_*`/`PORT` 外，其余键都必须是后端真实读取的。
+  这条测试正是本轮缺陷的通用防线。
+
+### 排查说明（扫描几乎全是误报）
+
+初扫一度认为 5 个配置项未被使用，逐个核实后发现 4 个是误报：`cors_origins` / `knowledge_top_k` / `knowledge_doc_urls` / `knowledge_stale_days` 都被对应的派生 property（`cors_origin_list` 等）消费。**只有 `deepseek_model_complex` 连 property 都没有。**
+
+### Verified
+
+- `166 passed`（单元，+2）/ `142 passed, 1 skipped`（集成）/ `ruff` 干净 / 文档一致性通过。
+- 顺带确认：全仓无 TODO/FIXME、无调试 `console.log`、无注释掉的代码块；`print` 只出现在 CLI 工具的正当输出里。
+
 ## [0.1.25] — 2026-11-04
 
 把一晚踩了三次的坑**做成了自动检查**。

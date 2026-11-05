@@ -91,7 +91,7 @@ npm run dev
 |---|---|---|---|
 | DEEPSEEK_API_KEY | DeepSeek 访问密钥，仅后端读取 | 无 | 否（缺失时 ai_configured=false，服务照常启动） |
 | DEEPSEEK_MODEL | 默认对话模型 | deepseek-flash | 否 |
-| DEEPSEEK_MODEL_COMPLEX | 复杂任务预留模型 | deepseek-v4-pro | 否 |
+| ~~DEEPSEEK_MODEL_COMPLEX~~ | ~~复杂任务预留模型~~ | **已移除（v0.1.26）**：代码从未读取它，"复杂任务"路由也从未实现。保留空旋钮比没有更糟 | — |
 | DATABASE_URL | 异步数据库连接串（postgresql+asyncpg） | 本地 compose 的连接串 | 是 |
 | CORS_ORIGINS | 允许的跨域来源列表 | http://localhost:3000,http://127.0.0.1:3000 | 否 |
 | ENVIRONMENT | 运行环境标识，写入 health 响应 | local | 否 |
@@ -432,7 +432,7 @@ Sprint 1 不创建 study_plan_items、不写入任何计划行；"计划预览"�
 |---|---|---|
 | provider | deepseek | 供应商标识，写入 ai_interactions.provider |
 | model | DEEPSEEK_MODEL，默认 deepseek-flash | 普通辅导对话 |
-| model（复杂） | DEEPSEEK_MODEL_COMPLEX，默认 deepseek-v4-pro | 仅诊断总结、架构讲解类任务使用 |
+| ~~model（复杂）~~ | ~~DEEPSEEK_MODEL_COMPLEX~~ | **未实现**（v0.1.26 已移除该配置项）：当前所有请求都用 DEEPSEEK_MODEL |
 | stream | true | 前端按 token 增量渲染 |
 | temperature | 0.3 | 辅导场景需要稳定，不接受 1.0 以上的自由发挥 |
 | max_tokens | 1024 | 单次回答上限，防止长回答挤占学习时间 |

@@ -37,7 +37,7 @@ class Settings(BaseSettings):
     deepseek_api_key: str = ""
     deepseek_base_url: str = "https://api.deepseek.com"
     deepseek_model: str = "deepseek-flash"
-    deepseek_model_complex: str = "deepseek-v4-pro"
+
     # Sprint 4: one upper bound on how long a tutor call may take, and one on how
     # many tokens the tutor may spend per learner per UTC day.
     ai_timeout_seconds: float = 30.0
