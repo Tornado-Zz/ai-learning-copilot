@@ -33,6 +33,7 @@ SPRINT9_REVISION = "0013_sprint9_practice_content"
 # 0014 只给 exercises 加 requirement_labels 并回填标签，不动课程与练习的正文：
 # 它仍然让 head 前移，所以「第二次 upgrade 不新增行」这条断言要跟着 head 走。
 LABELS_REVISION = "0014_sprint10_requirement_labels"
+HEAD_REVISION = "0015_sprint11_print_rule"
 PREVIOUS_REVISION = "0010_capstone_review_requires_reviewer"
 
 AI_LESSON_CODES = [
@@ -358,8 +359,10 @@ async def test_06_migration_is_idempotent_on_a_clean_database(migration_probe) -
         assert before["exercises"] == 10, before
 
         probe.upgrade("head")
-        # head 是 0014：0011 / 0012 / 0013 三段种子都在这一次 0010 -> head 里跑过。
-        assert LABELS_REVISION in probe.current()
+        # 0011 / 0012 / 0013 三段种子都在这一次 0010 -> head 里跑过；0014 补标签，
+        # 0015 只给既有题追加 print 规则（不新增行）。断言「到了最新版本」，
+        # 而不是钉死某一个历史版本号——否则每加一个迁移都要改这里。
+        assert HEAD_REVISION in probe.current()
         first = await probe.counts(PROBE_TABLES)
         # 0011 追加 2 节 + 4 道，0012 再追加 2 节 + 4 道，0013 再追加 2 节 + 4 道：
         # 0010 -> head 一共 +6 节、+12 道。
@@ -396,7 +399,14 @@ async def test_06_migration_is_idempotent_on_a_clean_database(migration_probe) -
             stored = stored_exercise[exercise["code"]]
             assert stored["content_version"] == 1, exercise["code"]
             assert stored["starter_code"] == exercise["starter_code"], exercise["code"]
-            assert json.loads(stored["required_patterns"]) == exercise["required_patterns"]
+            # 0015 会给「要求打印但不检查 print」的题追加一条 print 规则，
+            # 因此库内规则要么与种子一致，要么正好多出那一条。
+            stored_patterns = json.loads(stored["required_patterns"])
+            seeded_patterns = exercise["required_patterns"]
+            assert stored_patterns == seeded_patterns or stored_patterns == [
+                *seeded_patterns,
+                r"print\s*\(",
+            ], exercise["code"]
             assert json.loads(stored["visible_tests"]) == exercise["visible_tests"]
 
 

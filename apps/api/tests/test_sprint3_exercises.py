@@ -36,7 +36,7 @@ REVISION = "0004_sprint3_exercises"
 # 0011 追加 a3/a4、0012 追加 a5/a6 四节 AI 课与 8 道练习，0013 再补 a2 两节课与
 # 4 道练习，0014 给 exercises 加一列 requirement_labels 后 head 前移；0004 建的
 # 2 张表除这一列外不受影响。
-HEAD_REVISION = "0014_sprint10_requirement_labels"
+HEAD_REVISION = "0015_sprint11_print_rule"
 # 0005 与 0006 各建的表：结构的正确性由 Sprint 4 / Sprint 5 的测试负责，
 # 这里只需要把它们算进"已存在的表"集合。
 LATER_TABLES = {

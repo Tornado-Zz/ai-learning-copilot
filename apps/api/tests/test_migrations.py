@@ -37,7 +37,7 @@ PRACTICE_REVISION = "0013_sprint9_practice_content"
 # v0.1.18 的 0014 给 exercises 加 requirement_labels 并回填 22 题的 124 条中文要求：
 # 只发 ADD COLUMN / 一条 CHECK / UPDATE，head 前移一格。
 LABELS_REVISION = "0014_sprint10_requirement_labels"
-HEAD_REVISION = "0014_sprint10_requirement_labels"
+HEAD_REVISION = "0015_sprint11_print_rule"
 SPRINT2_TABLES = {"lessons", "learning_progress", "study_plan_items"}
 SPRINT3_TABLES = {"exercises", "submissions"}
 

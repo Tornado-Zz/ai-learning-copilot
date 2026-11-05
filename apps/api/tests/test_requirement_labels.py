@@ -33,7 +33,12 @@ ANSWER_KEYS = ("required_patterns", "forbidden_patterns", "expected_output")
 # 正则记号：标签是给人看的句子，出现这些字符就说明正则漏到了文案里。
 REGEX_MARKS = ("\\s", "\\w", "\\b", "[", "]", "(", ")", "|")
 LABEL_MAX_LENGTH = 40
-TOTAL_RULES = 124
+# 两个口径要分开：
+#   * 0014 迁移刚跑完时是 124 条（0011–0013 的种子规则），迁移幂等用例查的是这个快照；
+#   * 当前 head 是 136 条——0015 给 12 道「要求打印却未检查 print」的题各补一条规则。
+# 改内容时这两个数字都可能要同步。
+TOTAL_RULES_AFTER_0014 = 124
+TOTAL_RULES = 136
 TOTAL_EXERCISES = 22
 
 REQUIRED = [r"def\s+add\s*\(\s*\w+\s*,\s*\w+\s*\)", r"return\s+"]
@@ -290,7 +295,7 @@ async def test_0014_backfills_every_exercise_and_is_idempotent(migration_probe) 
 
         assert first == second
         assert len(first) == TOTAL_EXERCISES
-        assert sum(len(labels) for labels in first.values()) == TOTAL_RULES
+        assert sum(len(labels) for labels in first.values()) == TOTAL_RULES_AFTER_0014
         assert all(labels for labels in first.values())
 
         async with probe.connect() as connection:

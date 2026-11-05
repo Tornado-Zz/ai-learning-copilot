@@ -3,7 +3,7 @@
 面向**非计算机理工科背景、编程基础薄弱、希望转向 AI 应用开发**的初学者的自学平台。
 目标不是把课程播放完，而是让学习者最终能**独立开发并展示一个简单的 AI 应用**。
 
-> **当前版本 v0.1.18（单用户本地 MVP）**：数据库迁移 head 为 `0014_sprint10_requirement_labels`（共 14 个版本），
+> **当前版本 v0.1.18（单用户本地 MVP）**：数据库迁移 head 为 `0015_sprint11_print_rule`（共 15 个版本），
 > 后端共 **37 个操作 / 34 条路径**、**15 张业务表**；前端 **14 条页面路由**全部可访问。
 > 已完成：学习档案、20 题能力诊断与六域画像、**11 节课程**（Python 基础 5 节 + 编程实践 2 节 + API / LLM / RAG / Agent 4 节）与进度、周计划（含练习项）、
 > **22 道练习**的静态规则判题、DeepSeek AI 导师（额度与超时护栏）、知识库入库与引用检索。
@@ -225,7 +225,7 @@ Sprint 4 / 5 新增的六个后端变量：`AI_TIMEOUT_SECONDS`、`AI_DAILY_TOKE
 | --- | --- | --- |
 | 后端单元档 | `uv run pytest -q` | 数据库停止也必须全绿 |
 | 后端集成档 | `uv run pytest -q -m integration` | **hermetic**：用例自建夹具（临时库 + 自插基线行），在**全新数据库**上同样全绿 |
-| 迁移 | `uv run alembic upgrade head` + `alembic current` | 应为 `0014_sprint10_requirement_labels (head)` |
+| 迁移 | `uv run alembic upgrade head` + `alembic current` | 应为 `0015_sprint11_print_rule (head)` |
 | 前端 | `npx tsc --noEmit` / `npm run lint` / `npm run build` | 三项均应退出码 0 |
 
 CI 只有两个 job：`api`（PostgreSQL service + `uv sync --locked` + `ruff check` + `alembic upgrade head` + head 校验 + 单元档 + 集成档）与 `web`（`npm ci` + tsc + lint + build），**不使用任何 secret**。

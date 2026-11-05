@@ -41,8 +41,9 @@ for (const name of migrationFiles) {
   const text = readFileSync(join(MIGRATIONS_DIR, name), 'utf8');
   // 迁移文件里两种写法都有：`revision = "..."` 与带标注的 `revision: str = "..."`。
   // 只匹配前一种会让 head 静默停在旧版本——检查器自己给出过期真值是最危险的失败方式。
-  const rev = text.match(/^revision(?:\s*:\s*[^=\n]+)?\s*=\s*"([^"]+)"/m);
-  const down = text.match(/^down_revision(?:\s*:\s*[^=\n]+)?\s*=\s*"([^"]+)"/m);
+  // 引号两种都认：单引号同样是合法 Python，只认双引号会让 head 静默停在旧版本。
+  const rev = text.match(/^revision(?:\s*:\s*[^=\n]+)?\s*=\s*["']([^"']+)["']/m);
+  const down = text.match(/^down_revision(?:\s*:\s*[^=\n]+)?\s*=\s*["']([^"']+)["']/m);
   if (rev) revisions.set(rev[1], name);
   if (down && down[1] !== 'None') pointsTo.add(down[1]);
   for (const m of text.matchAll(/CREATE TABLE (?:IF NOT EXISTS )?([a-z_]+)/g)) tables.add(m[1]);
