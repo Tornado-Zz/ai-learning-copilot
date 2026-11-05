@@ -245,6 +245,7 @@ CI 只有两个 job：`api`（PostgreSQL service + `uv sync --locked` + `ruff ch
 | [docs/ROADMAP.md](docs/ROADMAP.md) | 各 Sprint 的分步计划、逐条验收条件 |
 | [docs/SPRINT1A_CONTRACT.md](docs/SPRINT1A_CONTRACT.md) | Sprint 1A 冻结契约：等级证据分层、L0 两态、JSONB 形态、API 契约 |
 | [docs/DESIGN_SYSTEM.md](docs/DESIGN_SYSTEM.md) | 视觉风格、颜色/字体/布局令牌、组件与交互规范 |
+| [docs/UX_NOTES.md](docs/UX_NOTES.md) | **界面为什么是这样**：刻意取舍、刻意保留的粗糙、已知缺口、可复用的走查方法 |
 | [CHANGELOG.md](CHANGELOG.md) | 变更记录（Keep a Changelog 格式） |
 
 ## 已知限制

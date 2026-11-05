@@ -12,6 +12,7 @@
 | [DATABASE.md](DATABASE.md) | 数据模型设计、ER 图、索引、约束清单、迁移策略 | 想改表结构之前 |
 | [ROADMAP.md](ROADMAP.md) | 各 Sprint 的分步计划与逐条验收条件 | 想知道「下一步做什么」 |
 | [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md) | 视觉风格、颜色/字体/布局令牌、组件与交互规范 | 改前端界面前 |
+| [UX_NOTES.md](UX_NOTES.md) | **界面为什么是这样**：刻意取舍、刻意保留的粗糙、已知缺口、走查方法 | 想改交互、或怀疑某个设计是 bug 时 |
 | [SPRINT1A_CONTRACT.md](SPRINT1A_CONTRACT.md) | Sprint 1A 冻结契约：等级证据分层、L0 两态、JSONB 形态、API 契约 | 查接口口径与错误码来源 |
 | [BUILD_PLAN.md](BUILD_PLAN.md) | 建设计划（阶段划分与交付定义） | 想知道「整体节奏」 |
 | [API.md](API.md) | **v0.1.8 全部 37 个操作 / 34 条路径的实测清单**、统一错误体、`request_id` 说明 | 调接口时 |
