@@ -31,8 +31,16 @@ function Test-HttpsGitHub {
     }
 }
 function Test-SshGitHub {
-    $out = & ssh -o StrictHostKeyChecking=no -o BatchMode=yes -o ConnectTimeout=6 -T git@github.com 2>&1
-    $text = ($out | Out-String)
+    # ssh reports "Permission denied (publickey)" on stderr. With
+    # ErrorActionPreference=Stop that becomes a fatal NativeCommandError, so relax it
+    # for the duration of this probe only.
+    $previous = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        $text = (& ssh -o StrictHostKeyChecking=no -o BatchMode=yes -o ConnectTimeout=6 -T git@github.com 2>&1 | Out-String)
+    } finally {
+        $ErrorActionPreference = $previous
+    }
     return ($text -match 'successfully authenticated') -or ($text -match 'Permission denied \(publickey\)')
 }
 
