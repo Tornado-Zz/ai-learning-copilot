@@ -5,6 +5,26 @@
 
 ## [Unreleased]
 
+## [0.1.59] — 2026-11-06
+
+修上一步引入的 CI 失败：`astral-sh/setup-uv@v10` **不存在这个浮动标签**。
+
+### 证据
+
+```
+##[error]Unable to resolve action `astral-sh/setup-uv@v10`, unable to find version `v10`
+```
+
+`actions/checkout@v7` 与 `actions/setup-node@v7` 有浮动 major 标签（可解析），但 setup-uv 只发**具体版本**：`v10.3.3` / `v10.3.2` / … ，没有 `v10`，也没有 `v10.3`。
+
+### Fixed
+
+`astral-sh/setup-uv@v10` → **`astral-sh/setup-uv@v10.3.3`**（写死具体版本，这也是官方推荐的用法之一）。
+
+### 教训（已写进这次的记录）
+
+升级 action 的 major 时，**不能假设每个仓库都维护浮动 major 标签**。升级前应当用 `gh api repos/<owner>/<repo>/git/ref/tags/<tag>` 验证标签真实存在，而不是拿 `releases/latest` 的版本号直接当标签用。
+
 ## [0.1.58] — 2026-11-06
 
 按用户要求做了一次 **CI 体检**：拿到失败日志、定位真正原因、清掉告警、把 action 升到 Node 24 版本。
