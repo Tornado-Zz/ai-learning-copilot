@@ -5,6 +5,50 @@
 
 ## [Unreleased]
 
+## [0.1.61] — 2026-11-06
+
+新增**研究专栏后端**：抓取技术新闻与论文，并让模型提炼要点。（界面在下一版）
+
+### 为什么单开一张表
+
+不复用 `knowledge_*`：那是「用于给回答兜底的文档快照」，每块都是切好的正文；专栏存的是**信息源条目**（标题 + 链接 + 摘要）和模型对它的解读。混在一起会让「这段话的出处是哪」变得含糊——而这正是本产品最不肯含糊的地方。
+
+### Added
+
+| 端点 | 作用 |
+| --- | --- |
+| `GET /news` | 已入库条目，按发布时间倒序，可按源过滤 |
+| `POST /news/refresh` | 从目录里的源抓一批；`NEWS_ENABLED=false` 时 **403** |
+| `GET /news/{id}` | 单条详情 |
+| `POST /news/{id}/analyze` | 让模型生成摘要 + 3–5 条要点；无 Key 时 503 |
+
+迁移 `0021_sprint16_news_items`：`news_items` 表（按 url 去重，AI 结果单独存状态）。
+
+### 安全与隐私（刻意设计）
+
+- **源是封闭目录**（`hn` / `arxiv-ai` / `gh-nextjs`），只接受目录里的键，**不接受客户端传 URL**——本地服务若能按请求抓任意地址，就是一个 SSRF 工具；
+- 抓取默认关闭（`NEWS_ENABLED=false`），关闭时端点直接 403，不会偷偷出网；
+- AI 结果带状态：`pending` / `ok` / `error` / `unavailable`，没分析就是没分析，不会显示成分析过。
+
+### Verified（真实调用，不是 mock）
+
+```
+POST /news/refresh → 200
+  hn        fetched=6 inserted=6
+  arxiv-ai  fetched=6 inserted=6
+  gh-nextjs fetched=6 inserted=6      items 0 -> 18
+POST /news/1/analyze → 200
+  model=deepseek-flash tokens=509 status=ok
+  summary: Hacker News 首页链接报道特斯拉因多年销量不佳而逐步停止 Cybertruck 生产
+  要点: 5 条（停产原因、来源站点、HN 70 分 43 条评论、摘要只提供链接无正文…）
+```
+
+### Tests
+
+- `tests/test_news_parsers.py`：9 条纯函数用例（RSS / Atom / GitHub Releases / JSON 宽松解析 / 键名过滤 / 要点上限 5 条）；
+- 全新库复跑：单元与集成 **150 passed, 1 skipped**（与 CI 同口径）；
+- 既有 `test_config_documented` 与 `test_sprint3_exercises` 抓到了我漏改的两处（`.env.example` 缺新键、新表未登记），已修——**这就是这些测试存在的意义**。
+
 ## [0.1.60] — 2026-11-06
 
 新增 `scripts/test-fresh-db.ps1`：**在临时数据库上跑两档测试**，与 CI 完全同口径。

@@ -48,7 +48,8 @@ SPRINT13_REVISION = "0018_sprint13_a5_a6_second_lessons"
 # 0019 补一节 a6 的「跟着做」实战课与 2 道练习；0020 再给 a1 补字符串与文件两节课与
 # 4 道练习：两段都只发 INSERT，head 各前移一格。
 SPRINT14_REVISION = "0019_sprint14_project_build"
-HEAD_REVISION = "0020_sprint15_py_strings_files"
+SPRINT15_REVISION = "0020_sprint15_py_strings_files"
+HEAD_REVISION = "0021_sprint16_news_items"
 SPRINT2_TABLES = {"lessons", "learning_progress", "study_plan_items"}
 SPRINT3_TABLES = {"exercises", "submissions"}
 
@@ -186,7 +187,8 @@ async def test_01_alembic_upgrade_head_succeeds_and_reports_head(database_url: s
     assert f"{RETURN_RULE_REVISION} -> {SPRINT12_REVISION}" in history.stdout
     assert f"{SPRINT12_REVISION} -> {SPRINT13_REVISION}" in history.stdout
     assert f"{SPRINT13_REVISION} -> {SPRINT14_REVISION}" in history.stdout
-    assert f"{SPRINT14_REVISION} -> {HEAD_REVISION}" in history.stdout
+    assert f"{SPRINT14_REVISION} -> {SPRINT15_REVISION}" in history.stdout
+    assert f"{SPRINT15_REVISION} -> {HEAD_REVISION}" in history.stdout
     current = subprocess.run(
         [sys.executable, "-m", "alembic", "current"],
         cwd=API_DIR,

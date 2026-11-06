@@ -37,7 +37,7 @@ LABELS_REVISION = "0014_sprint10_requirement_labels"
 # 4 道练习，0018 又补 a5 / a6 各一节第二课与 4 道练习，0019 再补 a6 一节「跟着做」实战课
 # 与 2 道练习，0020 再给 a1 补字符串与文件两节课与 4 道练习：它们都让 head 前移，
 # 「第二次 upgrade 不新增行」这条断言跟着 head 走。
-HEAD_REVISION = "0020_sprint15_py_strings_files"
+HEAD_REVISION = "0021_sprint16_news_items"
 PREVIOUS_REVISION = "0010_capstone_review_requires_reviewer"
 
 AI_LESSON_CODES = [

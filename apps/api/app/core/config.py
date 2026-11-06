@@ -44,6 +44,11 @@ class Settings(BaseSettings):
     ai_daily_token_limit: int = 50000
     # Sprint 5 knowledge base. Ingestion is OFF unless an operator turns it on:
     # the endpoint is a write path, so the default must be a 403 that costs nothing.
+    # 研究专栏：抓取技术新闻/论文。默认关闭；关闭时相关端点拒绝请求，不出网。
+    news_enabled: bool = False
+    # 只接受目录里的键（hn / arxiv-ai / gh-nextjs），不接受 URL。
+    news_sources: str = "hn,arxiv-ai,gh-nextjs"
+    news_limit_per_source: int = 8
     knowledge_ingest_enabled: bool = False
     knowledge_stale_days: int = 30
     knowledge_top_k: int = 3
@@ -64,6 +69,10 @@ class Settings(BaseSettings):
     def ai_configured(self) -> bool:
         """True only when a non-blank DEEPSEEK_API_KEY is present."""
         return bool(self.deepseek_api_key.strip())
+
+    @property
+    def news_source_key_list(self) -> list[str]:
+        return [part.strip() for part in self.news_sources.split(",") if part.strip()]
 
     @property
     def knowledge_doc_url_list(self) -> list[str]:

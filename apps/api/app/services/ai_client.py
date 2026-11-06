@@ -332,6 +332,61 @@ class DeepSeekClient:
         )
 
 
+    async def complete_chat(
+        self,
+        *,
+        messages: Sequence[Mapping[str, str]],
+        temperature: float = 0.2,
+    ) -> AiCompletion:
+        """One completion for an arbitrary message list.
+
+        Added for the research column (summarise a news item / paper into key points),
+        which needs its own system prompt rather than the tutor's assistance levels.
+        Shares the transport, timeouts and error classification with complete().
+        """
+        if not self.configured:
+            raise AiUpstreamError("AI_UNAVAILABLE", "DEEPSEEK_API_KEY 未配置")
+
+        url = f"{self._base_url}{CHAT_COMPLETIONS_PATH}"
+        body = {
+            "model": self.model,
+            "messages": [dict(message) for message in messages],
+            "stream": False,
+            "temperature": temperature,
+        }
+        started = time.perf_counter()
+        try:
+            response = await self._transport.post(
+                url, json=body, headers=self._headers(), timeout=self.timeout_seconds
+            )
+        except httpx.TimeoutException as exc:
+            raise AiUpstreamTimeout(redact(str(exc), self._api_key)) from exc
+        except (httpx.HTTPError, OSError) as exc:
+            raise AiUpstreamError(
+                "AI_TRANSPORT_ERROR", redact(f"{type(exc).__name__}: {exc}", self._api_key)
+            ) from exc
+
+        latency_ms = int(round((time.perf_counter() - started) * 1000))
+        if response.status_code >= 400:
+            raise AiUpstreamError(f"AI_UPSTREAM_STATUS_{response.status_code}")
+        if not isinstance(response.payload, Mapping):
+            raise AiUpstreamError("AI_UPSTREAM_BAD_PAYLOAD")
+
+        payload = response.payload
+        answer = _clip_answer(payload)
+        if not answer:
+            raise AiUpstreamError("AI_UPSTREAM_EMPTY_ANSWER")
+        prompt_tokens, completion_tokens = _parse_usage(payload)
+        model = payload.get("model")
+        return AiCompletion(
+            answer=answer,
+            model=str(model) if isinstance(model, str) and model else self.model,
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+            latency_ms=latency_ms,
+        )
+
+
 __all__ = [
     "ASSISTANCE_INSTRUCTIONS",
     "AiCallError",

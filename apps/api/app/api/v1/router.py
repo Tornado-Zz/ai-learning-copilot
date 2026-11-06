@@ -12,6 +12,7 @@ from app.api.v1.routes import (
     health,
     knowledge,
     lessons,
+    news,
     progress,
     review,
     skills,
@@ -32,3 +33,4 @@ api_router.include_router(knowledge.router)
 api_router.include_router(progress.router)
 api_router.include_router(review.router)
 api_router.include_router(capstone.router)
+api_router.include_router(news.router)

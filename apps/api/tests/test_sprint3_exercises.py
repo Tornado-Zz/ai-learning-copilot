@@ -37,7 +37,7 @@ REVISION = "0004_sprint3_exercises"
 # 4 道练习，0014 给 exercises 加一列 requirement_labels，0017 再补 2 节课与 4 道
 # 练习，0018 又补 2 节课与 4 道练习，0019 再补 1 节课与 2 道练习，0020 再补 2 节课与
 # 4 道练习；head 一路前移，0004 建的 2 张表除这一列外不受影响。
-HEAD_REVISION = "0020_sprint15_py_strings_files"
+HEAD_REVISION = "0021_sprint16_news_items"
 # 0005 与 0006 各建的表：结构的正确性由 Sprint 4 / Sprint 5 的测试负责，
 # 这里只需要把它们算进"已存在的表"集合。
 LATER_TABLES = {
@@ -46,6 +46,8 @@ LATER_TABLES = {
     "knowledge_chunks",
     "review_items",
     "capstone_submissions",
+    # Sprint 16 的研究专栏：0004 之后新增，同样不在 0004 的冻结表集里
+    "news_items",
 }
 ANSWER_KEYS = ("required_patterns", "forbidden_patterns", "expected_output")
 

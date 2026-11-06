@@ -4,7 +4,7 @@
 没有鉴权、只监听回环地址、默认不连真实 AI 服务。改动遵循「小步、可复跑、不留假数据」。
 
 - 产品与范围：[docs/PRD.md](docs/PRD.md) ｜ 架构：[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
-- 接口口径：[docs/API.md](docs/API.md)（37 个操作 / 34 条路径，实测清单）
+- 接口口径：[docs/API.md](docs/API.md)（41 个操作 / 38 条路径，实测清单）
 - 数据模型：[docs/DATABASE.md](docs/DATABASE.md)
 
 ---

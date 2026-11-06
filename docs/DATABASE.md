@@ -12,7 +12,7 @@
 > **读法**：本文档的历史部分（第 2 节起）是 **Sprint 1A 冻结的设计基线**；本节是**当前代码真实建了什么**。
 > 两者不一致时，以本节 + `apps/api/migrations/versions/` + 实际数据库为准。
 
-### 0.1 实际存在的 15 张业务表
+### 0.1 实际存在的 16 张业务表
 
 ```sql
 -- 实测：information_schema.tables 中 public schema、排除 alembic_version
@@ -23,7 +23,7 @@ review_items, capstone_submissions,
 knowledge_sources, knowledge_chunks, diagnostic_attempts
 ```
 
-迁移：`0001` → `0020`（head `0020_sprint15_py_strings_files`），共 20 个版本文件。
+迁移：`0001` → `0020`（head `0021_sprint16_news_items`），共 21 个版本文件。
 
 ### 0.2 设计稿里有、但**没有建**的表，以及实际用了什么
 
@@ -49,7 +49,7 @@ knowledge_sources, knowledge_chunks, diagnostic_attempts
 
 ### 0.5 因此第 2 节的 ER 图怎么读
 
-第 2 节的 ER 图与「15 张表全部出现在图中」是按**设计基线**画的，其中 4 条关系对应上面 0.2 的纸面表。实际库的 ER 请以 0.1 + 各迁移文件为准。
+第 2 节的 ER 图与「16 张表全部出现在图中」是按**设计基线**画的，其中 4 条关系对应上面 0.2 的纸面表。实际库的 ER 请以 0.1 + 各迁移文件为准。
 
 ---
 
@@ -126,7 +126,7 @@ erDiagram
     users ||--o{ diagnostic_attempts : "1:N 诊断批次"
 ```
 
-关系完整性说明：15 张表全部出现在图中；所有外键都在第 4 节逐表列出；没有孤立表，也没有只画不实现的关联。有两处引用按设计不画成外键连线：① study_plan_items.target_id 是按 kind 解释的多态引用（指向 lessons 或 exercises），理由见 4.14 节；② user_skill_levels.evidence_ref 是文本引用 `diag:<attempt_id>` / `sub:<submission_id>`，跨 Sprint 引用 submissions 时按 6.3 节规则不提前建外键，理由见 4.4 节。diagnostic_attempts 的连线是真实外键（user_id → users）。
+关系完整性说明：16 张表全部出现在图中；所有外键都在第 4 节逐表列出；没有孤立表，也没有只画不实现的关联。有两处引用按设计不画成外键连线：① study_plan_items.target_id 是按 kind 解释的多态引用（指向 lessons 或 exercises），理由见 4.14 节；② user_skill_levels.evidence_ref 是文本引用 `diag:<attempt_id>` / `sub:<submission_id>`，跨 Sprint 引用 submissions 时按 6.3 节规则不提前建外键，理由见 4.4 节。diagnostic_attempts 的连线是真实外键（user_id → users）。
 
 ## 3. 表清单与拆分说明
 
@@ -784,7 +784,7 @@ passed_with_ai boolean GENERATED ALWAYS AS (is_passed IS TRUE AND ai_assistance_
 
 ### 4.15 diagnostic_attempts
 
-**用途**：诊断批次快照（第 15 张表，**S1 建表**）。一次诊断提交一行，answers 与六域得分整份落库，使 user_skill_levels.evidence_ref 能指向同一真实批次；重复提交生成新行，绝不覆盖旧行。
+**用途**：诊断批次快照（第 16 张表，**S1 建表**）。一次诊断提交一行，answers 与六域得分整份落库，使 user_skill_levels.evidence_ref 能指向同一真实批次；重复提交生成新行，绝不覆盖旧行。
 
 | 字段 | 类型 | 约束 | 说明 |
 |---|---|---|---|
