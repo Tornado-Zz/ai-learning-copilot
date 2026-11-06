@@ -5,6 +5,48 @@
 
 ## [Unreleased]
 
+## [0.1.58] — 2026-11-06
+
+按用户要求做了一次 **CI 体检**：拿到失败日志、定位真正原因、清掉告警、把 action 升到 Node 24 版本。
+
+### 1. 失败原因（有日志，不是猜的）
+
+`gh run view <失败 run> --log-failed` 指向**集成档第 10 步**：
+
+```
+AssertionError: 生成后必须至少有一条计划项   tests/test_study_plan_items.py:135
+IndexError: list index out of range          :165 / :195 / :238
+```
+
+根因是 `STUDY_DAYS = [2, 4]`（周二/周四）写死，而计划生成器**只排今天及以后**——CI 在**周五**跑时本周已无这两天，生成 0 条。**v0.1.57 已修**（改为按真实日期推算，周日跳过）。最新一次运行 `42144501013` 已 success。
+
+### 2. 清理死代码
+
+`plan-item.tsx` 里的 `ACTION_KINDS` 自改 `KindBadge` 后已无引用，删掉（CI 里一直有 `no-unused-vars` 告警）。
+
+### 3. Actions 升级到 Node 24 运行时
+
+| Action | 原 | 现 |
+| --- | --- | --- |
+| `actions/checkout` | v4（Node 20） | **v7** |
+| `actions/setup-node` | v4（Node 20） | **v7** |
+| `astral-sh/setup-uv` | v6（Node 20） | **v10** |
+
+**升级前逐项核对了 `action.yml` 的输入参数**，确认我们用到的 `version` / `python-version` / `enable-cache` / `node-version` / `cache` / `cache-dependency-path` 在新 major 里都还在——没有靠猜。
+
+### 4. Ubuntu 26 Runner 通知
+
+那是 GitHub 的**信息性提示**（`ubuntu-latest` 将来会指向 Ubuntu 26），不是失败原因，也不需要改：本仓库没有绑定具体 runner 版本，也没有用 Ubuntu 版本相关的系统包。记录备查，不做无意义迁移。
+
+### 5. 业务依赖
+
+**一个都没升**。本轮只动 CI 的 action 版本与一行死代码，Next.js / FastAPI / SQLAlchemy 等业务依赖保持原状。
+
+### Verified
+
+- 本地：`tsc` / `eslint` / `next build` 全过；workflow YAML 用 PyYAML 解析，两个 job 分别是 8 步与 7 步，`uses:` 已是新版本；
+- 推送后由 GitHub Actions 实际运行验证（这是唯一能证明 action 兼容的方式）。
+
 ## [0.1.57] — 2026-11-05
 
 **修 CI 首次失败的真实原因**：一条日期敏感测试在周五必然变红。

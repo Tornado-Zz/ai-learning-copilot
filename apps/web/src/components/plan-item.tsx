@@ -15,7 +15,8 @@ import { planItemReadOnlyNote } from "@/lib/plan-rules";
 
 // S6：类型徽章是零基础用户分辨「读课」与「动手练」的第一信息，所以排在标题之前。
 // v0.1.2：kind 新增 review（间隔复习），与 exercise 同属动手项、共用强调色；文案统一由 planItemKindLabel 给出。
-const ACTION_KINDS = ["exercise", "review"];
+// 注：这里原来有个 ACTION_KINDS 常量，改了 KindBadge 后已无引用，
+// 留着只会让 ESLint 每次 CI 都报一条 no-unused-vars 警告，故删除。
 
 // 课程 / 练习 / 复习三类用不同颜色，扫一眼就知道今天是什么类型的任务。
 const KIND_TONE: Record<string, "accent" | "info" | "warning" | "neutral"> = {
