@@ -15,6 +15,7 @@
 
 ```powershell
 git clone <仓库地址> && cd ai-learning-copilot
+# 双击仓库根目录的 启动.bat 即可（推荐）；命令行等价写法：
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\start-dev.ps1
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\smoke.ps1
 ```

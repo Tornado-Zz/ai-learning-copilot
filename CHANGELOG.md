@@ -5,6 +5,42 @@
 
 ## [Unreleased]
 
+## [0.1.56] — 2026-11-05
+
+**一键启动**：新增可双击的 `启动.bat` 与 `停止.bat`，以及 `scripts/stop-dev.ps1`。
+
+### 为什么
+
+原来每次启动要在 PowerShell 里敲一条长命令，还要自己记得先开 Docker、先关旧进程。现在双击即可。
+
+### 启动.bat 做的事（顺序）
+
+1. 停掉占用 3000 / 8000 的旧进程（避免重复双击后端口冲突）；
+2. 检查 Docker，未运行会明确报错；
+3. 缺失时从 `.env.example` 生成 `apps/api/.env` 与 `apps/web/.env.local`；
+4. `docker compose up -d` 起 PostgreSQL，等 health 变 healthy（最多 80 秒）；
+5. `alembic upgrade head` 迁移；
+6. 起 API（8000）与 Web（3000，首次会 `npm ci` + 构建）；
+7. **等两个服务都返回 200**，打印结果并自动打开浏览器。
+
+失败时窗口不关闭并提示把错误发出来，不会一闪而过。
+
+### 实测
+
+- 双击等价运行：`[1/5]` 到 `[5/5]` 全过，输出 `API : OK` / `WEB : OK`，浏览器自动打开；
+- 停 → 启 反复一次，端口与进程都干净；
+- 启动后 `api=200 web=200`，`smoke.ps1` 18 项全 PASS；
+- 中文在 `.bat` 里正常显示（`chcp 65001`）；
+- 把 `timeout /t` 换成 `ping -n`——前者在无终端上下文会报 `Input redirection is not supported`。
+
+### 文档
+
+README 与 `docs/GETTING_STARTED.md` 的启动段都改成「双击 `启动.bat`（推荐）」+ 命令行等价写法；目录树补上两个 `.bat` 与 `stop-dev.ps1`。
+
+### 仍保留的手动路径
+
+`scripts/start-dev.ps1` 原样可用（`.bat` 只是它的包装），CI 与文档里的命令行写法不受影响。
+
 ## [0.1.55] — 2026-11-05
 
 补完 Python 基础缺的两块：**字符串**与**文件**。a1 从 5 节变 7 节。
