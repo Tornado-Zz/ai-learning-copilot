@@ -5,6 +5,41 @@
 
 ## [Unreleased]
 
+## [0.1.62] — 2026-11-06
+
+研究专栏**界面**上线：`/news`。加上定期刷新脚本，这一块就完整了。
+
+### Added
+
+- 侧栏新增「研究专栏」（在「知识库」下方）；
+- 每条显示：来源标签（Hacker News / arXiv cs.AI / Next.js Releases）、AI 状态（已提炼 / 待提炼）、时间、标题（点开原文）、**一句话摘要**、**编号要点 3–5 条**、token 消耗；
+- 「AI 提炼重点」按钮按条触发，已提炼的可重新提炼；
+- 「抓取最新」按钮显示每个源抓了多少、新增多少，以及条目总数变化；
+- `scripts/refresh-news.ps1` + Windows 任务计划示例，用来做**定期刷新**。
+
+### Fixed
+
+- **HN 的 RSS 摘要里带 HTML**（`<p>`、`<a href=...>`），原先原样显示到页面上。现在解析时剥掉标签并反转义实体，新增一条回归测试钉住；已入库的 6 条旧数据一并清掉。
+- 页面标题重复了站名后缀（`研究专栏 · AI Learning Copilot · AI Learning Copilot`），改为只写「研究专栏」。
+
+### 定期刷新是怎么做的（刻意不放进进程里）
+
+抓取是**显式动作**，不是后台魔法：脚本调 `POST /news/refresh`，由 Windows 任务计划决定多久跑一次。
+
+```powershell
+schtasks /create /tn "AI Learning Copilot - news" /sc hourly ^
+  /tr "powershell -NoProfile -ExecutionPolicy Bypass -File <REPO>\\scripts\\refresh-news.ps1"
+```
+
+好处是**看得见、关得掉**：任务计划里能停，进程里没有隐藏计时器。
+
+### Verified
+
+- 页面实测：真实 HN 条目、已提炼标签、5 条要点、509 tokens 全部正确渲染，Console 0 报错；
+- `scripts/refresh-news.ps1` 实跑：`items 18 -> 18`（去重生效，重复抓不会产生重复行）；
+- `tsc` / `eslint` / `next build` 全部通过，路由表含 `/news`；
+- 解析器测试 10 passed（含新增的 HTML 剥离用例）；纯 ASCII 脚本。
+
 ## [0.1.61] — 2026-11-06
 
 新增**研究专栏后端**：抓取技术新闻与论文，并让模型提炼要点。（界面在下一版）

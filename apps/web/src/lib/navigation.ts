@@ -107,6 +107,13 @@ export const NAV_GROUPS: NavGroup[] = [
         title: "知识检索",
         summary: "只读知识库快照 · 每条结果标注抓取时间",
       },
+      {
+        href: "/news",
+        label: "研究专栏",
+        en: "News",
+        title: "研究专栏",
+        summary: "技术新闻与论文 · 由模型提炼要点",
+      },
     ],
   },
 ];

@@ -90,3 +90,17 @@ def test_parse_analysis_caps_key_points_at_five() -> None:
     answer = '{"summary": "s", "key_points": ["1", "2", "3", "4", "5", "6", "7"]}'
     _summary, points = parse_analysis(answer)
     assert points == ["1", "2", "3", "4", "5"]
+
+
+def test_clean_strips_html_from_hacker_news_descriptions() -> None:
+    # HN 的 <description> 里带一段 HTML；原样显示会把标签摆到读者面前。
+    rss = """<?xml version="1.0"?>
+<rss version="2.0"><channel><title>t</title>
+<item><title>Some post</title><link>https://example.com/x</link>
+<description>&lt;p&gt;Article URL: &lt;a href="https://example.com/x"&gt;link&lt;/a&gt;&lt;/p&gt;</description>
+</item></channel></rss>"""
+    items = parse_rss(rss, 5)
+    assert len(items) == 1
+    assert "<" not in items[0].excerpt
+    assert "Article URL:" in items[0].excerpt
+

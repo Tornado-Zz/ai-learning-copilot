@@ -15,7 +15,9 @@ Design notes worth keeping:
 
 from __future__ import annotations
 
+import html
 import json
+import re
 import xml.etree.ElementTree as ET
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
@@ -88,10 +90,19 @@ def resolve_sources(raw: str) -> list[SourceSpec]:
     return specs
 
 
+_TAG_RE = re.compile(r"<[^>]+>")
+
+
 def _clean(value: str | None, limit: int = 600) -> str:
+    """Collapse whitespace AND strip HTML.
+
+    HN 的 RSS 把一段 HTML 放在 <description> 里。原样渲染会把 <p> 和 <a href=...>
+    直接摆到读者面前；在这里剥掉标签，界面展示的就确实是纯文本。
+    """
     if not value:
         return ""
-    collapsed = " ".join(value.split())
+    without_tags = _TAG_RE.sub(" ", value)
+    collapsed = " ".join(html.unescape(without_tags).split())
     return collapsed[:limit]
 
 
