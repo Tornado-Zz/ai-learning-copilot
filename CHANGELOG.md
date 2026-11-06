@@ -5,6 +5,38 @@
 
 ## [Unreleased]
 
+## [0.1.60] — 2026-11-06
+
+新增 `scripts/test-fresh-db.ps1`：**在临时数据库上跑两档测试**，与 CI 完全同口径。
+
+### 为什么需要它
+
+同一天里出现了两次「本地红、CI 绿」：
+
+- 11-05 本地：166 / 150+1skip 全绿；
+- 11-06 本地（日期变了、且库里多了我试用产生的提交与复习项）：集成档 **4 条红**；
+- 同一时刻 CI（全新库）：**全绿**；
+- 手工建空库复跑：**166 / 150+1skip**，与 CI 一字不差。
+
+也就是说：集成用例本身是 hermetic 的，但**开发库里有真实学习历史**（47 次提交、11 条复习项、多次诊断），跑同一批用例时会因数据状态而非代码而红。这让人无法判断「红」到底是不是回归。
+
+### Added
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-fresh-db.ps1
+```
+
+流程：建临时库 → `alembic upgrade head` → 跑单元与集成两档 → **无论成败都 DROP 临时库**。开发库一行不动。
+
+### Verified
+
+- 实测输出：`150 passed, 1 skipped`，结尾 `both suites passed on a fresh database (same as CI).`；
+- 临时库用后即删；纯 ASCII（PowerShell 5.1 要求）。
+
+### 约定
+
+以后判断「是不是真回归」用这个脚本，不要直接对着开发库跑集成档。这一条也写进了 `docs/UX_NOTES.md` 的走查方法里。
+
 ## [0.1.59] — 2026-11-06
 
 修上一步引入的 CI 失败：`astral-sh/setup-uv@v10` **不存在这个浮动标签**。
