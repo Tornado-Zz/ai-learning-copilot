@@ -15,12 +15,14 @@ import {
   NEWS_REFRESH_PATH,
   aiStatusLabel,
   analyzePath,
+  askPath,
+  parseNewsAnswer,
   newsSourceLabel,
   parseNewsItem,
   parseNewsList,
   parseNewsRefresh,
 } from "@/lib/news";
-import type { NewsItem, NewsList, NewsRefresh } from "@/lib/news";
+import type { NewsAnswer, NewsItem, NewsList, NewsRefresh } from "@/lib/news";
 
 type ViewState =
   | { status: "loading" }
@@ -87,6 +89,30 @@ export function NewsView() {
     );
     load();
   }, [load]);
+
+  const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [questions, setQuestions] = useState<Record<string, string>>({});
+
+  const ask = useCallback(async (id: string) => {
+    const question = (questions[id] ?? "").trim();
+    if (question.length < 2) {
+      return;
+    }
+    setBusyId(id);
+    setActionFailure(null);
+    setNotice(null);
+    const result = await apiRequest<NewsAnswer>(askPath(id), {
+      method: "POST",
+      body: { question },
+      parse: parseNewsAnswer,
+    });
+    setBusyId(null);
+    if (!result.ok) {
+      setActionFailure(result.failure);
+      return;
+    }
+    setAnswers((value) => ({ ...value, [id]: result.data.answer }));
+  }, [questions]);
 
   const analyze = useCallback(
     async (id: string) => {
@@ -232,6 +258,32 @@ export function NewsView() {
                       </span>
                     ) : null}
                   </div>
+
+                  <div className="flex flex-wrap items-center gap-2">
+                    <input
+                      type="text"
+                      value={questions[item.id] ?? ""}
+                      onChange={(event) =>
+                        setQuestions((value) => ({ ...value, [item.id]: event.target.value }))
+                      }
+                      placeholder="就这条问 AI，例如：它解决什么问题？"
+                      aria-label={"就《" + item.title + "》提问"}
+                      className="min-w-[220px] flex-1 rounded-control border border-line-strong bg-surface px-2.5 py-1.5 text-[12px] text-fg"
+                    />
+                    <Button
+                      variant="secondary"
+                      onClick={() => void ask(item.id)}
+                      disabled={busyId !== null || (questions[item.id] ?? "").trim().length < 2}
+                    >
+                      {busyId === item.id ? "思考中…" : "问 AI"}
+                    </Button>
+                  </div>
+                  {answers[item.id] ? (
+                    <p className="rounded-control border border-info-line bg-info-soft px-3 py-2 text-[12.5px] leading-relaxed text-fg">
+                      <span className="mr-1.5 font-medium text-info-text">AI 回答</span>
+                      {answers[item.id]}
+                    </p>
+                  ) : null}
                 </li>
               ))}
             </ul>

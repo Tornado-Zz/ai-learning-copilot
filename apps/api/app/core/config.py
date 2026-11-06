@@ -49,6 +49,8 @@ class Settings(BaseSettings):
     # 只接受目录里的键（hn / arxiv-ai / gh-nextjs），不接受 URL。
     news_sources: str = "hn,arxiv-ai,gh-nextjs"
     news_limit_per_source: int = 8
+    # 提炼前先抓原文正文；抓多少字进提示。抓不到就退回摘要，不假装看过。
+    news_article_chars: int = 2500
     knowledge_ingest_enabled: bool = False
     knowledge_stale_days: int = 30
     knowledge_top_k: int = 3

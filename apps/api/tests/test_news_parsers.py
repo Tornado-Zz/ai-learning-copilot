@@ -5,11 +5,15 @@ from __future__ import annotations
 from datetime import UTC
 
 from app.services.news import (
+    SOURCE_CATALOG,
+    html_to_text,
     parse_analysis,
     parse_atom,
     parse_github_releases,
+    parse_github_search,
     parse_rss,
     resolve_sources,
+    with_since,
 )
 
 RSS = """<?xml version="1.0"?>
@@ -104,3 +108,60 @@ def test_clean_strips_html_from_hacker_news_descriptions() -> None:
     assert "<" not in items[0].excerpt
     assert "Article URL:" in items[0].excerpt
 
+
+
+GH_SEARCH = """{"total_count": 433, "items": [
+  {"full_name": "deepseek-ai/DeepInfer", "html_url": "https://github.com/deepseek-ai/DeepInfer",
+   "description": "An inference stack", "stargazers_count": 25521,
+   "created_at": "2026-10-20T10:00:00Z"}
+]}"""
+
+HN_RSS = """<?xml version="1.0"?>
+<rss version="2.0"><channel><title>t</title>
+<item><title>Post</title><link>https://news.ycombinator.com/item?id=1</link>
+<description>&lt;p&gt;Article URL: &lt;a href="https://example.com/real-article"&gt;link&lt;/a&gt;&lt;/p&gt;</description>
+</item></channel></rss>"""
+
+
+def test_parse_github_search_reads_stars_into_the_excerpt() -> None:
+    items = parse_github_search(GH_SEARCH, 10)
+    assert len(items) == 1
+    assert items[0].title == "deepseek-ai/DeepInfer"
+    assert items[0].url == "https://github.com/deepseek-ai/DeepInfer"
+    assert "25521" in items[0].excerpt
+    assert items[0].published_at is not None
+
+
+def test_parse_github_search_ignores_a_non_dict_payload() -> None:
+    assert parse_github_search("[]", 10) == []
+
+
+def test_rss_prefers_the_article_url_over_the_discussion_link() -> None:
+    items = parse_rss(HN_RSS, 5)
+    assert len(items) == 1
+    # 点开应该去原文，而不是 HN 讨论页
+    assert items[0].url == "https://example.com/real-article"
+
+
+def test_rss_falls_back_to_the_link_when_no_article_url_is_present() -> None:
+    rss = """<?xml version="1.0"?>
+<rss version="2.0"><channel><title>t</title>
+<item><title>x</title><link>https://example.com/discuss</link>
+<description>plain text</description></item></channel></rss>"""
+    items = parse_rss(rss, 5)
+    assert items[0].url == "https://example.com/discuss"
+
+
+def test_html_to_text_drops_scripts_and_tags() -> None:
+    raw = "<html><head><script>var a = 1;</script></head><body><p>Hello &amp; welcome</p></body></html>"
+    text = html_to_text(raw, 500)
+    assert "script" not in text
+    assert "<" not in text
+    assert "Hello & welcome" in text
+
+
+def test_with_since_fills_the_date_placeholder() -> None:
+    spec = SOURCE_CATALOG["gh-trending"]
+    filled = with_since(spec)
+    assert "{since}" not in filled.url
+    assert "created:%3E20" in filled.url

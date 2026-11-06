@@ -15,7 +15,7 @@
 | [UX_NOTES.md](UX_NOTES.md) | **界面为什么是这样**：刻意取舍、刻意保留的粗糙、已知缺口、走查方法 | 想改交互、或怀疑某个设计是 bug 时 |
 | [SPRINT1A_CONTRACT.md](SPRINT1A_CONTRACT.md) | Sprint 1A 冻结契约：等级证据分层、L0 两态、JSONB 形态、API 契约 | 查接口口径与错误码来源 |
 | [BUILD_PLAN.md](BUILD_PLAN.md) | 建设计划（阶段划分与交付定义） | 想知道「整体节奏」 |
-| [API.md](API.md) | **v0.1.8 全部 41 个操作 / 38 条路径的实测清单**、统一错误体、`request_id` 说明 | 调接口时 |
+| [API.md](API.md) | **v0.1.8 全部 42 个操作 / 39 条路径的实测清单**、统一错误体、`request_id` 说明 | 调接口时 |
 
 ## 2. 过程记录（reports/，历史存档，不再修订）
 

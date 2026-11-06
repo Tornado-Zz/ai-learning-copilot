@@ -48,3 +48,17 @@ class NewsRefreshResponse(BaseModel):
     sources: list[NewsRefreshSourceStat]
     items_before: int
     items_after: int
+
+
+class NewsAskRequest(BaseModel):
+    """一个问题。长度上限与其它自由文本输入一致，避免把整篇文章塞进来。"""
+
+    question: str = Field(min_length=2, max_length=500)
+
+
+class NewsAskResponse(BaseModel):
+    answer: str
+    model: str
+    prompt_tokens: int
+    completion_tokens: int
+    used_article: bool

@@ -206,3 +206,34 @@ export function aiStatusLabel(status: string): string {
   }
   return "待提炼";
 }
+
+
+export type NewsAnswer = {
+  answer: string;
+  model: string;
+  promptTokens: number;
+  completionTokens: number;
+  usedArticle: boolean;
+};
+
+export function askPath(id: string): string {
+  return NEWS_PATH + "/" + encodeURIComponent(id) + "/ask";
+}
+
+export function parseNewsAnswer(payload: unknown): NewsAnswer | null {
+  const record = asRecord(payload);
+  if (!record) {
+    return null;
+  }
+  const answer = readText(record, ["answer"]);
+  if (answer === null) {
+    return null;
+  }
+  return {
+    answer,
+    model: readText(record, ["model"]) ?? "",
+    promptTokens: readCount(record, ["prompt_tokens", "promptTokens"]) ?? 0,
+    completionTokens: readCount(record, ["completion_tokens", "completionTokens"]) ?? 0,
+    usedArticle: record.used_article === true || record.usedArticle === true,
+  };
+}

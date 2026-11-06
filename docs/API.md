@@ -1,6 +1,6 @@
 # API 参考（v0.1.18）
 
-本文档描述 **v0.1.18 实际注册的 41 个操作 / 38 条路径**，与实际运行的 `GET /openapi.json` 逐条核对过（`/exercises/{id}/submissions` 有 GET 与 POST 两个操作）。
+本文档描述 **v0.1.18 实际注册的 42 个操作 / 39 条路径**，与实际运行的 `GET /openapi.json` 逐条核对过（`/exercises/{id}/submissions` 有 GET 与 POST 两个操作）。
 契约来源：[SPRINT1A_CONTRACT.md](SPRINT1A_CONTRACT.md) §6；实现来源：`apps/api/app/api/v1/routes/`。
 
 - 基地址：`http://127.0.0.1:8000`
@@ -63,7 +63,7 @@
 
 ---
 
-## 3. 端点总览（37 条操作 / 38 条路径）
+## 3. 端点总览（37 条操作 / 39 条路径）
 
 | # | 方法 | 路径 | 说明 |
 | --- | --- | --- | --- |
@@ -374,7 +374,7 @@
 | `GET /submissions/recent` | 界面按练习维度展示历史（`GET /exercises/{id}/submissions`），跨练习的时间线暂无产品需求。端点保留但无入口，已在 `README` 的已知限制里写明。 |
 | `POST /knowledge/ingest` | 抓取入库默认关闭，开启后也只接受 `KNOWLEDGE_DOC_URLS` 白名单内的官方文档页。它是**运维动作**，不该出现在学习界面里；关闭时返回 403。 |
 
-如何自查还有没有这类「后端有、界面没接」的缺口：把 `GET /openapi.json` 的每个操作与 `apps/web/src/lib/*.ts` 里的路径构造函数逐一对照。**注意**：前端用函数拼路径，直接文本匹配会产生大量假阳性（实测 41 个操作里有 9 个误报），必须回到 lib 里的构造函数确认。
+如何自查还有没有这类「后端有、界面没接」的缺口：把 `GET /openapi.json` 的每个操作与 `apps/web/src/lib/*.ts` 里的路径构造函数逐一对照。**注意**：前端用函数拼路径，直接文本匹配会产生大量假阳性（实测 42 个操作里有 9 个误报），必须回到 lib 里的构造函数确认。
 
 ---
 

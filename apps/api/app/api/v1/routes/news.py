@@ -24,6 +24,8 @@ from app.core.errors import ApiError
 from app.schemas.news import (
     NEWS_LIMIT_DEFAULT,
     NEWS_LIMIT_MAX,
+    NewsAskRequest,
+    NewsAskResponse,
     NewsItemOut,
     NewsListResponse,
     NewsRefreshResponse,
@@ -128,6 +130,7 @@ async def analyze_news_item(
     item_id: int = NEWS_ID_PATH,
     session: AsyncSession = Depends(get_db),
     client: DeepSeekClient = Depends(get_ai_client),
+    fetcher: Callable[[str], Awaitable[str]] = Depends(get_news_fetcher),
 ) -> NewsItemOut:
     if not client.configured:
         raise ApiError(
@@ -138,5 +141,38 @@ async def analyze_news_item(
     item = await news_service.get_item(session, item_id)
     if item is None:
         raise _not_found()
-    analyzed = await news_service.analyze(session, item=item, client=client)
+    analyzed = await news_service.analyze(
+        session,
+        item=item,
+        client=client,
+        article_fetcher=fetcher,
+        article_limit=get_settings().news_article_chars,
+    )
     return _to_out(analyzed)
+
+
+@router.post("/news/{item_id}/ask", response_model=NewsAskResponse)
+async def ask_news_item(
+    payload: NewsAskRequest,
+    item_id: int = NEWS_ID_PATH,
+    session: AsyncSession = Depends(get_db),
+    client: DeepSeekClient = Depends(get_ai_client),
+    fetcher: Callable[[str], Awaitable[str]] = Depends(get_news_fetcher),
+) -> NewsAskResponse:
+    if not client.configured:
+        raise ApiError(
+            status_code=503,
+            code="AI_UNAVAILABLE",
+            message="未配置 DEEPSEEK_API_KEY，无法就这条提问",
+        )
+    item = await news_service.get_item(session, item_id)
+    if item is None:
+        raise _not_found()
+    result = await news_service.ask_about_item(
+        item=item,
+        question=payload.question,
+        client=client,
+        article_fetcher=fetcher,
+        article_limit=get_settings().news_article_chars,
+    )
+    return NewsAskResponse(**result)

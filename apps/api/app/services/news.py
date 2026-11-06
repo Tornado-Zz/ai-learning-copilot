@@ -21,7 +21,7 @@ import re
 import xml.etree.ElementTree as ET
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import text
 
@@ -43,11 +43,12 @@ class SourceSpec:
 SOURCE_CATALOG: dict[str, SourceSpec] = {
     spec.key: spec
     for spec in (
+        # 只要高赞：points=150 是 hnrss 支持的过滤参数，实测有效。
         SourceSpec(
             key="hn",
             kind="rss",
-            label="Hacker News 首页",
-            url="https://hnrss.org/frontpage",
+            label="Hacker News 高赞",
+            url="https://hnrss.org/frontpage?points=150",
         ),
         SourceSpec(
             key="arxiv-ai",
@@ -58,11 +59,16 @@ SOURCE_CATALOG: dict[str, SourceSpec] = {
                 "?search_query=cat:cs.AI&sortBy=submittedDate&sortOrder=descending&max_results=20"
             ),
         ),
+        # GitHub 没有 trending 接口，但 search 能表达同一件事：近 30 天新建、star 门槛以上、
+        # 按 star 倒序。比抓 github.com/trending 稳定（那个页面本机也连不上）。
         SourceSpec(
-            key="gh-nextjs",
-            kind="github_releases",
-            label="Next.js Releases",
-            url="https://api.github.com/repos/vercel/next.js/releases?per_page=20",
+            key="gh-trending",
+            kind="github_search",
+            label="GitHub 新晋高星",
+            url=(
+                "https://api.github.com/search/repositories"
+                "?q=created:%3E{since}+stars:%3E300&sort=stars&order=desc&per_page=20"
+            ),
         ),
     )
 }
@@ -139,11 +145,13 @@ def parse_rss(payload: str, limit: int) -> list[FetchedItem]:
         link = (node.findtext("link") or "").strip()
         if not title or not link:
             continue
+        raw_description = node.findtext("description") or ""
         items.append(
             FetchedItem(
                 title=title,
-                url=link,
-                excerpt=_clean(node.findtext("description")),
+                # 有原文链接就用它（点开看原文，提炼时也抓原文），没有才退回讨论页。
+                url=_article_url(raw_description) or link,
+                excerpt=_clean(raw_description),
                 published_at=_parse_time(node.findtext("pubDate")),
             )
         )
@@ -200,10 +208,66 @@ def parse_github_releases(payload: str, limit: int) -> list[FetchedItem]:
     return items
 
 
+
+
+ARTICLE_LINK_RE = re.compile(r'Article URL:\s*<a href="([^"]+)"')
+
+
+def _article_url(description: str) -> str | None:
+    """HN 的 <link> 指向讨论页，真正的文章地址在 <description> 里。
+
+    点开时应该去原文，所以优先用文章地址；找不到就退回讨论页。
+    """
+    match = ARTICLE_LINK_RE.search(description or "")
+    return match.group(1) if match else None
+
+
+def parse_github_search(payload: str, limit: int) -> list[FetchedItem]:
+    """GitHub search API: items[] with full_name / html_url / description / stars."""
+    data = json.loads(payload)
+    if not isinstance(data, dict):
+        return []
+    raw = data.get("items")
+    if not isinstance(raw, list):
+        return []
+    items: list[FetchedItem] = []
+    for entry in raw:
+        if not isinstance(entry, dict):
+            continue
+        url = str(entry.get("html_url") or "")
+        name = str(entry.get("full_name") or entry.get("name") or "")
+        if not url or not name:
+            continue
+        stars = entry.get("stargazers_count")
+        description = _clean(str(entry.get("description") or ""), 400)
+        excerpt = f"★ {stars} · {description}" if isinstance(stars, int) else description
+        items.append(
+            FetchedItem(
+                title=name,
+                url=url,
+                excerpt=excerpt,
+                published_at=_parse_time(entry.get("created_at")),
+            )
+        )
+        if len(items) >= limit:
+            break
+    return items
+
+
+def with_since(spec: SourceSpec) -> SourceSpec:
+    """Fill the {since} placeholder with "30 days ago" at refresh time."""
+    if "{since}" not in spec.url:
+        return spec
+    since = (datetime.now(UTC) - timedelta(days=30)).strftime("%Y-%m-%d")
+    return SourceSpec(
+        key=spec.key, kind=spec.kind, label=spec.label, url=spec.url.replace("{since}", since)
+    )
+
 PARSERS: dict[str, Callable[[str, int], list[FetchedItem]]] = {
     "rss": parse_rss,
     "atom": parse_atom,
     "github_releases": parse_github_releases,
+    "github_search": parse_github_search,
 }
 
 Fetcher = Callable[[str], Awaitable[str]]
@@ -279,6 +343,7 @@ async def refresh(session, *, specs, limit_per_source: int, fetcher):
     stats = []
     before = int((await session.execute(COUNT_ITEMS)).scalar_one())
     for spec in specs:
+        spec = with_since(spec)
         try:
             payload = await fetcher(spec.url)
             parsed = PARSERS[spec.kind](payload, limit_per_source)
@@ -310,6 +375,40 @@ async def refresh(session, *, specs, limit_per_source: int, fetcher):
     return {"sources": stats, "items_before": before, "items_after": after}
 
 
+
+
+_SCRIPT_RE = re.compile(r"<(script|style|noscript)[^>]*>.*?</\1>", re.IGNORECASE | re.DOTALL)
+_WS_RE = re.compile(r"\s+")
+
+
+def html_to_text(raw: str, limit: int) -> str:
+    """Very small readability substitute: drop scripts/styles, strip tags, unescape.
+
+    Not a reader-mode implementation - it does not try to find the article element.
+    It is enough to give the model the actual sentences instead of only the feed
+    excerpt, and it is deliberately dependency-free.
+    """
+    without_scripts = _SCRIPT_RE.sub(" ", raw)
+    text = _TAG_RE.sub(" ", without_scripts)
+    text = html.unescape(text)
+    return _WS_RE.sub(" ", text).strip()[:limit]
+
+
+async def fetch_article_text(
+    url: str, *, fetcher, limit: int
+) -> tuple[str, str | None]:
+    """Return (text, error). Failure is reported, never patched over with fake text."""
+    try:
+        raw = await fetcher(url)
+    # 抓正文是"锦上添花"：任何失败都必须降级到摘要，绝不能把整个提炼接口打挂。
+    # fetcher 的具体异常类型由调用方决定（httpx 的错误不是 OSError 子类），所以这里
+    # 捕获 Exception，只把原因写回给调用方。
+    except Exception as exc:  # noqa: BLE001
+        return "", f"{type(exc).__name__}: {exc}"[:160]
+    if not raw.strip():
+        return "", "empty body"
+    return html_to_text(raw, limit), None
+
 ANALYSIS_SYSTEM_PROMPT = (
     "你是一个严谨的技术研究助理，读者是刚学完 Python 与 API 基础的初学者。"
     "只根据用户给出的标题与摘要作答，不要补充摘要里没有的事实。"
@@ -319,13 +418,19 @@ ANALYSIS_SYSTEM_PROMPT = (
 )
 
 
-def build_analysis_messages(title: str, excerpt: str, source_label: str) -> list:
+def build_analysis_messages(
+    title: str, excerpt: str, source_label: str, article_text: str = ""
+) -> list:
     fallback = "（没有摘要；只能根据标题判断，请在 summary 里说明）"
     lines = [
         "来源：" + source_label,
         "标题：" + title,
         "摘要：" + (excerpt or fallback),
     ]
+    if article_text:
+        lines.append("正文节选：" + article_text)
+    else:
+        lines.append("正文：未能获取（只能用上面的标题与摘要，请在 summary 里说明依据有限）")
     return [
         {"role": "system", "content": ANALYSIS_SYSTEM_PROMPT},
         {"role": "user", "content": chr(10).join(lines)},
@@ -369,11 +474,22 @@ async def _store_failure(session, item_id: int) -> None:
     await session.commit()
 
 
-async def analyze(session, *, item, client):
-    """Ask the model for a summary plus key points and store the result."""
+async def analyze(session, *, item, client, article_fetcher=None, article_limit: int = 2500):
+    """Ask the model for a summary plus key points and store the result.
+
+    先尽量抓原文正文再提炼（更准），抓不到就退回摘要，并在提示里说明依据有限——
+    不让模型在"看不到正文"时装作看过。
+    """
     spec = SOURCE_CATALOG.get(str(item["source_key"]))
     label = spec.label if spec else str(item["source_key"])
-    messages = build_analysis_messages(str(item["title"]), str(item.get("excerpt") or ""), label)
+    article_text = ""
+    if article_fetcher is not None:
+        article_text, _error = await fetch_article_text(
+            str(item["url"]), fetcher=article_fetcher, limit=article_limit
+        )
+    messages = build_analysis_messages(
+        str(item["title"]), str(item.get("excerpt") or ""), label, article_text
+    )
     try:
         completion = await client.complete_chat(messages=messages, temperature=0.2)
     except AiUpstreamTimeout:
@@ -402,3 +518,64 @@ async def analyze(session, *, item, client):
     )
     await session.commit()
     return await get_item(session, int(item["id"])) or item
+
+
+ASK_SYSTEM_PROMPT = (
+    "你是读者的技术研究搭档。下面有一条技术新闻或论文的元信息，可能还有正文节选。"
+    "回答读者的问题时，只根据这些材料，不要引入材料里没有的事实；"
+    "材料不足以回答时，直接说材料里没有这条信息，并说明还缺什么。"
+    "回答控制在 4 句话以内，用中文。"
+)
+
+
+def build_ask_messages(question: str, item: dict, article_text: str = "") -> list:
+    lines = [
+        "来源：" + str(item.get("source_key") or ""),
+        "标题：" + str(item.get("title") or ""),
+        "原文链接：" + str(item.get("url") or ""),
+    ]
+    if item.get("ai_summary"):
+        lines.append("已有摘要：" + str(item["ai_summary"]))
+    points = item.get("ai_key_points") or []
+    if points:
+        lines.append("已有要点：" + "；".join(str(point) for point in points))
+    if item.get("excerpt"):
+        lines.append("原文摘要：" + str(item["excerpt"]))
+    if article_text:
+        lines.append("正文节选：" + article_text)
+    lines.append("读者的问题：" + question)
+    return [
+        {"role": "system", "content": ASK_SYSTEM_PROMPT},
+        {"role": "user", "content": chr(10).join(lines)},
+    ]
+
+
+async def ask_about_item(
+    *, item, question: str, client, article_fetcher=None, article_limit: int = 2500
+):
+    """One question about one item. Not persisted: this is a read-only side chat."""
+    article_text = ""
+    if article_fetcher is not None:
+        article_text, _error = await fetch_article_text(
+            str(item["url"]), fetcher=article_fetcher, limit=article_limit
+        )
+    messages = build_ask_messages(question, item, article_text)
+    try:
+        completion = await client.complete_chat(messages=messages, temperature=0.3)
+    except AiUpstreamTimeout:
+        raise ApiError(
+            status_code=504, code="AI_TIMEOUT", message="模型调用超时，这次提问没有回答"
+        ) from None
+    except AiCallError as exc:
+        raise ApiError(
+            status_code=502,
+            code=getattr(exc, "code", "AI_UPSTREAM_ERROR"),
+            message="模型调用失败，这次提问没有回答",
+        ) from exc
+    return {
+        "answer": completion.answer,
+        "model": completion.model,
+        "prompt_tokens": completion.prompt_tokens,
+        "completion_tokens": completion.completion_tokens,
+        "used_article": bool(article_text),
+    }
