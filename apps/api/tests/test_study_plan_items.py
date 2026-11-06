@@ -12,6 +12,8 @@ import pytest
 from sqlalchemy import ARRAY, SmallInteger, bindparam, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from tests.conftest import calendar_today, future_weekdays
+
 pytestmark = pytest.mark.integration
 
 # 与真实档案不同的学习日：保证本测试生成的项目与库内既有行不共用 dedupe_key
@@ -95,7 +97,16 @@ async def _restore(db_session: AsyncSession, baseline: dict[str, object]) -> Non
 
 
 async def _prepare(api, db_session: AsyncSession) -> tuple[dict[str, object], dict[str, object]]:
-    """Confirmed timezone + fixed budget, then generate this test's own items."""
+    """Confirmed timezone + fixed budget, then generate this test's own items.
+
+    学习日不能写死「周二/周四」：生成器只排**今天及以后**，CI 在周五跑时本周已无
+    周二/周四，会生成 0 条计划项，用例随之整片变红（GitHub Actions 首次失败即此因）。
+    这里按真实今天推算本周剩余的学习日，放不下就跳过。
+    """
+    _monday, today = await calendar_today(db_session)
+    study_days = future_weekdays(today, 2)
+    if not study_days:
+        pytest.skip("本周已无「今天及以后」的学习日")
     baseline = await _baseline(api, db_session)
     user_id = int(baseline["user_id"])
     await db_session.execute(
@@ -104,7 +115,7 @@ async def _prepare(api, db_session: AsyncSession) -> tuple[dict[str, object], di
     )
     await db_session.execute(
         SET_PROFILE,
-        {"user_id": user_id, "days": STUDY_DAYS, "daily_minutes": DAILY_MINUTES},
+        {"user_id": user_id, "days": study_days, "daily_minutes": DAILY_MINUTES},
     )
     generated = await api.post("/api/v1/study-plan/generate")
     assert generated.status_code == 200, generated.text
